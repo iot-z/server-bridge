@@ -5,12 +5,15 @@ import Q from 'q';
 const MAX_MESSAGE_ID = 255;
 let MESSAGE_ID = 0;
 
-class ServerClient extends EventEmitter {
-  constructor(server, host, port) {
+class Client extends EventEmitter {
+  constructor(server, host, port, id, type, version) {
     super();
 
-    this._host = host;
-    this._port = port;
+    this._host    = host;
+    this._port    = port;
+    this._id      = id;
+    this._type    = type;
+    this._version = version;
 
     this._lastTalkTime = Date.now();
 
@@ -31,6 +34,18 @@ class ServerClient extends EventEmitter {
 
   get port() {
     return this._port;
+  }
+
+  get id() {
+    return this._id;
+  }
+
+  get type() {
+    return this._type;
+  }
+
+  get version() {
+    return this._version;
   }
 }
 
@@ -53,7 +68,7 @@ export default class Server extends EventEmitter {
 
     this.socket.on('message', (buffer, rinfo) => {
       let payload = JSON.parse(buffer.toString());
-      let client = this.getClient(rinfo.address, rinfo.port);
+      let client = this.getClient(payload.id);
 
       if (!!client) {
         client.lastTalkTime = Date.now();
@@ -61,16 +76,15 @@ export default class Server extends EventEmitter {
         if (payload.topic == 'ping') {
           // Do nothing
         } else if (payload.topic == 'disconnect') {
-          this.rmClient(client.instance.host, client.instance.port);
+          this.rmClient(payload.id);
         } else {
-          console.log(buffer.toString());
           client.instance.emit(payload.topic, payload.data);
           client.instance.emit('*', payload.topic, payload.data);
           // this.emit(payload.topic, payload.data);
         }
       } else {
         if (payload.topic == 'connect') {
-          this.newClient(rinfo.address, rinfo.port);
+          this.newClient(payload.id);
         }
       }
     });
@@ -93,36 +107,36 @@ export default class Server extends EventEmitter {
           if (now - client.lastTalkTime < this._pingTimeOut) {
             client.instance.send('ping');
           } else {
-            this.rmClient(client.instance.host, client.instance.port);
+            this.rmClient(payload.id);
           }
         }
       }
     }, 1000/30);
   }
 
-  newClient(host, port) {
+  newClient(host, port, id, type, version) {
     let client = {
-      instance: new ServerClient(this, host, port),
+      instance: new Client(this, host, port, id, type, version),
       lastTalkTime: Date.now()
     };
 
-    this._clients[host+':'+port] = client;
+    this._clients[id] = client;
 
     client.instance.send('connect');
     this.emit('connection', client.instance);
   }
 
-  getClient(host, port) {
-    return this._clients[host+':'+port];
+  getClient(id) {
+    return this._clients[id];
   }
 
-  rmClient(host, port) {
-    let client = this._clients[host+':'+port];
+  rmClient(id) {
+    let client = this._clients[id];
 
     client.instance.send('disconected');
     client.instance.emit('disconected');
 
-    delete this._clients[host+':'+port];
+    delete this._clients[id];
   }
 
   send(client, topic, data) {
