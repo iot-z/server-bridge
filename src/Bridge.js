@@ -1,7 +1,9 @@
 import ServerUser from 'socket.io';
 import ServerModule from './ServerModule';
+import ServerHttp from 'express';
 
-var serverUser    = new ServerUser(3000);
+let serverHttp    = new ServerHttp();
+let serverUser    = new ServerUser(3000);
 let serverModule  = new ServerModule(4123);
 
 let Bridge = {
@@ -34,3 +36,5 @@ serverUser.on('connection', (client) => {
 
   });
 });
+
+serverHttp.use(ServerHttp.static('public'));
