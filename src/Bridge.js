@@ -4,23 +4,10 @@ import ServerHttp from 'express';
 
 let serverHttp    = new ServerHttp();
 let serverUser    = new ServerUser(3000);
-let serverModule  = new ServerModule(4123);
-
-let Bridge = {
-  modules: {},
-  users: {}
-};
+let serverModule  = new ServerModule(4000);
 
 serverModule.on('connection', (client) => {
-  client.on('setDevice', (id, type, version) => {
-    console.log(id, type, version);
-
-    IoTz.modules[id] = {
-      type:     type,
-      version:  version,
-      instance: client
-    }
-  });
+    console.log('Module connected:', client.id, client.type, client.version);
 });
 
 serverUser.on('connection', (client) => {
@@ -28,12 +15,16 @@ serverUser.on('connection', (client) => {
     console.log('user disconnected');
   });
 
-  client.on('send', () => {
-
+  client.on('send', (playload) => {
+    let module = serverModule.getClient(playload.module);
+    module.send(playload.topic, playload.data);
   });
 
-  client.on('ask', () => {
-
+  client.on('ask', (playload) => {
+    let module = serverModule.getClient(playload.module);
+    module.ask(playload.topic, playload.data).then((data) => {
+      client.emit(playload.id, data);
+    });
   });
 });
 

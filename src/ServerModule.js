@@ -2,7 +2,7 @@ import {EventEmitter} from 'events';
 import dgram from 'dgram';
 import Q from 'q';
 
-const MAX_MESSAGE_ID = 255;
+const MAX_MESSAGE_ID = 65535; // uint16
 let MESSAGE_ID = 0;
 
 class Client extends EventEmitter {
@@ -15,7 +15,7 @@ class Client extends EventEmitter {
     this._type    = type;
     this._version = version;
 
-    this._lastTalkTime = Date.now();
+    this._time = Date.now();
 
     this.server = server;
   }
@@ -26,6 +26,14 @@ class Client extends EventEmitter {
 
   ask(topic, data) {
     return this.server.ask(this, topic, data);
+  }
+
+  setTime() {
+    this._time = Date.now();
+  }
+
+  get time() {
+    return this._time;
   }
 
   get host() {
@@ -68,23 +76,27 @@ export default class Server extends EventEmitter {
 
     this.socket.on('message', (buffer, rinfo) => {
       let payload = JSON.parse(buffer.toString());
-      let client = this.getClient(payload.id);
+      let client = this.getClient(payload.moduleId);
+
+      console.log(payload.data);
+      payload.data = JSON.parse(payload.data);
+      console.log('depois');
 
       if (!!client) {
-        client.lastTalkTime = Date.now();
+        client.setTime();
 
         if (payload.topic == 'ping') {
           // Do nothing
         } else if (payload.topic == 'disconnect') {
-          this.rmClient(payload.id);
+          this.rmClient(payload.moduleId);
         } else {
-          client.instance.emit(payload.topic, payload.data);
-          client.instance.emit('*', payload.topic, payload.data);
+          client.emit(payload.topic, payload.data);
+          client.emit('*', payload.topic, payload.data);
           // this.emit(payload.topic, payload.data);
         }
       } else {
         if (payload.topic == 'connect') {
-          this.newClient(payload.id);
+          this.newClient(rinfo.address, rinfo.port, payload.moduleId, payload.data.type, payload.data.version);
         }
       }
     });
@@ -103,11 +115,11 @@ export default class Server extends EventEmitter {
       for (name in this._clients) {
         client = this._clients[name];
 
-        if (now - client.lastTalkTime > this._pingDelay) {
-          if (now - client.lastTalkTime < this._pingTimeOut) {
-            client.instance.send('ping');
+        if (now - client.time > this._pingDelay) {
+          if (now - client.time < this._pingTimeOut) {
+            client.send('ping');
           } else {
-            this.rmClient(payload.id);
+            this.rmClient(client.id);
           }
         }
       }
@@ -115,15 +127,12 @@ export default class Server extends EventEmitter {
   }
 
   newClient(host, port, id, type, version) {
-    let client = {
-      instance: new Client(this, host, port, id, type, version),
-      lastTalkTime: Date.now()
-    };
+    let client = new Client(this, host, port, id, type, version);
 
     this._clients[id] = client;
 
-    client.instance.send('connect');
-    this.emit('connection', client.instance);
+    client.send('connect');
+    this.emit('connection', client);
   }
 
   getClient(id) {
@@ -133,8 +142,8 @@ export default class Server extends EventEmitter {
   rmClient(id) {
     let client = this._clients[id];
 
-    client.instance.send('disconected');
-    client.instance.emit('disconected');
+    client.send('disconnect');
+    client.emit('disconected');
 
     delete this._clients[id];
   }
@@ -153,10 +162,10 @@ export default class Server extends EventEmitter {
 
   ask(client, topic, data) {
     let d = Q.defer(),
-    messageID = this._genMessageID(),
-    buffer = new Buffer(JSON.stringify({id: messageID, topic: topic, data: data}));
+    messageId = this._genMessageID(),
+    buffer = new Buffer(JSON.stringify({messageId: messageId, topic: topic, data: data}));
 
-    client.once(messageID, (data) => {
+    client.once(messageId, (data) => {
       d.resolve(data);
     });
 
