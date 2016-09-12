@@ -78,10 +78,6 @@ export default class Server extends EventEmitter {
       let payload = JSON.parse(buffer.toString());
       let client = this.getClient(payload.moduleId);
 
-      console.log(payload.data);
-      payload.data = JSON.parse(payload.data);
-      console.log('depois');
-
       if (!!client) {
         client.setTime();
 
@@ -140,6 +136,7 @@ export default class Server extends EventEmitter {
   }
 
   rmClient(id) {
+    console.log('rmClient', id);
     let client = this._clients[id];
 
     client.send('disconnect');
