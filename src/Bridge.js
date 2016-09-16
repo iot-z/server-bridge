@@ -26,6 +26,8 @@ serverUser.on('connection', (client) => {
       client.emit(playload.id, data);
     });
   });
+
+  client.emmit('list-modules', serverModule.clients);
 });
 
 serverHttp.use(ServerHttp.static('public'));

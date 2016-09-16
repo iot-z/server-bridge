@@ -115,6 +115,7 @@ export default class Server extends EventEmitter {
           if (now - client.time < this._pingTimeOut) {
             client.send('ping');
           } else {
+            console.log('timeout', client.id);
             this.rmClient(client.id);
           }
         }
@@ -136,7 +137,6 @@ export default class Server extends EventEmitter {
   }
 
   rmClient(id) {
-    console.log('rmClient', id);
     let client = this._clients[id];
 
     client.send('disconnect');
@@ -194,5 +194,15 @@ export default class Server extends EventEmitter {
 
   get port() {
     return this._port;
+  }
+
+  get clients() {
+    let c = [];
+
+    for (let i in this._clients) {
+      c.push({id: this._clients[i].id, type: this._clients[i].type, version: this._clients[i].version});
+    }
+
+    return c;
   }
 }
