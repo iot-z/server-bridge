@@ -27,7 +27,7 @@ serverUser.on('connection', (client) => {
     });
   });
 
-  client.emmit('list-modules', serverModule.clients);
+  client.emit('list-modules', serverModule.clients);
 });
 
 serverHttp.use(ServerHttp.static('public'));

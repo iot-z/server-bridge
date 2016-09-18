@@ -6,12 +6,13 @@ const MAX_MESSAGE_ID = 65535; // uint16
 let MESSAGE_ID = 0;
 
 class Client extends EventEmitter {
-  constructor(server, host, port, id, type, version) {
+  constructor(server, host, port, id, name, type, version) {
     super();
 
     this._host    = host;
     this._port    = port;
     this._id      = id;
+    this._name    = name;
     this._type    = type;
     this._version = version;
 
@@ -64,8 +65,8 @@ export default class Server extends EventEmitter {
     this._port    = port;
     this._clients = {};
 
-    this._pingDelay   = 50;
-    this._pingTimeOut = 250;
+    this._pingDelay   = 100;
+    this._pingTimeOut = 500;
 
     this.socket = dgram.createSocket('udp4');
 
@@ -92,7 +93,7 @@ export default class Server extends EventEmitter {
         }
       } else {
         if (payload.topic == 'connect') {
-          this.newClient(rinfo.address, rinfo.port, payload.moduleId, payload.data.type, payload.data.version);
+          this.newClient(rinfo.address, rinfo.port, payload.moduleId, payload.name, payload.data.type, payload.data.version);
         }
       }
     });
@@ -123,8 +124,8 @@ export default class Server extends EventEmitter {
     }, 1000/30);
   }
 
-  newClient(host, port, id, type, version) {
-    let client = new Client(this, host, port, id, type, version);
+  newClient(host, port, id, name, type, version) {
+    let client = new Client(this, host, port, id, name, type, version);
 
     this._clients[id] = client;
 
