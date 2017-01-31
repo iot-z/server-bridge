@@ -15,15 +15,15 @@ serverUser.on('connection', (client) => {
     console.log('user disconnected');
   });
 
-  client.on('send', (playload) => {
-    let module = serverModule.getClient(playload.module);
-    module.send(playload.topic, playload.data);
+  client.on('send', (payload) => {
+    let module = serverModule.getClient(payload.module);
+    module.send(payload.topic, payload.data);
   });
 
-  client.on('ask', (playload) => {
-    let module = serverModule.getClient(playload.module);
-    module.ask(playload.topic, playload.data).then((data) => {
-      client.emit(playload.id, data);
+  client.on('ask', (payload) => {
+    let module = serverModule.getClient(payload.module);
+    module.ask(payload.topic, payload.data).then((data) => {
+      client.emit(payload.id, data);
     });
   });
 
