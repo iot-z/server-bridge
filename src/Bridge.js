@@ -2,16 +2,18 @@ import ServerUser from 'socket.io';
 import ServerModule from './ServerModule';
 import ServerHttp from 'express';
 
-let serverHttp    = new ServerHttp();
+// let serverHttp    = new ServerHttp();
 let serverUser    = new ServerUser(3000);
 let serverModule  = new ServerModule(4000);
 
 serverModule.on('connection', (client) => {
-    console.log('Module connected:', client.id, client.type, client.version);
+    console.log('Module connected:', client.id, client.name, client.type, client.version);
 });
 
 serverUser.on('connection', (client) => {
-  client.on('disconnect', function () {
+  console.log('connection');
+
+  client.on('disconnect', () => {
     console.log('user disconnected');
   });
 
@@ -27,7 +29,9 @@ serverUser.on('connection', (client) => {
     });
   });
 
-  client.emit('list-modules', serverModule.clients);
+  client.on('get-list-modules', () => {
+    client.emit('list-modules', serverModule.clients);
+  });
 });
 
-serverHttp.use(ServerHttp.static('public'));
+// serverHttp.use(ServerHttp.static('public'));

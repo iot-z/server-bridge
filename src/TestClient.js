@@ -1,4 +1,4 @@
-import Client from './Client';
+import Client from './FakeClient';
 
 var host = '192.168.15.10';
 var port = 4123;
