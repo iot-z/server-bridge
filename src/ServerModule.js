@@ -16,7 +16,7 @@ class Client extends EventEmitter {
     this._type    = type;
     this._version = version;
 
-    this._time = Date.now();
+    this.setTime();
 
     this.server = server;
   }
@@ -49,6 +49,10 @@ class Client extends EventEmitter {
     return this._id;
   }
 
+  get name() {
+    return this._name;
+  }
+
   get type() {
     return this._type;
   }
@@ -65,8 +69,9 @@ export default class Server extends EventEmitter {
     this._port    = port;
     this._clients = {};
 
-    this._pingDelay   = 100;
-    this._pingTimeOut = 500;
+    this._pingDelay       = 7000;
+    this._pingTimeOut     = 1500;
+    this._messageTimeOut  = 5000;
 
     this.socket = dgram.createSocket('udp4');
 
@@ -76,8 +81,8 @@ export default class Server extends EventEmitter {
     });
 
     this.socket.on('message', (buffer, rinfo) => {
-      let payload = JSON.parse(buffer.toString());
-      let client = this.getClient(payload.moduleId);
+      const payload = JSON.parse(buffer.toString());
+      const client = this.getClient(payload.moduleId);
 
       if (!!client) {
         client.setTime();
@@ -93,21 +98,21 @@ export default class Server extends EventEmitter {
         }
       } else {
         if (payload.topic == 'connect') {
-          this.newClient(rinfo.address, rinfo.port, payload.moduleId, payload.name, payload.data.type, payload.data.version);
+          this.newClient(rinfo.address, rinfo.port, payload.moduleId, payload.data.name, payload.data.type, payload.data.version);
         }
       }
     });
 
     this.socket.on('listening', () => {
-      let address = this.socket.address();
+      const address = this.socket.address();
       console.log(`server listening ${address.address}:${address.port}`);
     });
 
     this.socket.bind(this._port);
 
     setInterval(() => {
+      const now = Date.now();
       let client, name;
-      let now = Date.now();
 
       for (name in this._clients) {
         client = this._clients[name];
@@ -125,7 +130,7 @@ export default class Server extends EventEmitter {
   }
 
   newClient(host, port, id, name, type, version) {
-    let client = new Client(this, host, port, id, name, type, version);
+    const client = new Client(this, host, port, id, name, type, version);
 
     this._clients[id] = client;
 
@@ -138,7 +143,7 @@ export default class Server extends EventEmitter {
   }
 
   rmClient(id) {
-    let client = this._clients[id];
+    const client = this._clients[id];
 
     client.send('disconnect');
     client.emit('disconected');
@@ -147,28 +152,25 @@ export default class Server extends EventEmitter {
   }
 
   send(client, topic, data) {
-    let d = Q.defer(),
-    buffer = new Buffer(JSON.stringify({topic: topic, data: data}));
-
-    this.socket.send(buffer, 0, buffer.length, client.port, client.host, (err) => {
-      if (err) d.reject(err);
-      d.resolve();
-    });
-
-    return d.promise;
-  }
-
-  ask(client, topic, data) {
-    let d = Q.defer(),
-    messageId = this._genMessageID(),
-    buffer = new Buffer(JSON.stringify({messageId: messageId, topic: topic, data: data}));
+    const d         = Q.defer(),
+    const messageId = this._genMessageID(),
+    const buffer    = new Buffer(JSON.stringify({messageId: messageId, topic: topic, data: data})),
+    const timeout;
 
     client.once(messageId, (data) => {
+      clearTimeout(timeout);
       d.resolve(data);
     });
 
     this.socket.send(buffer, 0, buffer.length, client.port, client.host, (err) => {
-      if (err) d.reject(err);
+      if (err) {
+        d.reject(err);
+      } else {
+        timeout = setTimeout(() => {
+          client.removeListener(messageId);
+          d.reject(err);
+        }, this._messageTimeOut);
+      }
     });
 
     return d.promise;
@@ -201,7 +203,7 @@ export default class Server extends EventEmitter {
     let c = [];
 
     for (let i in this._clients) {
-      c.push({id: this._clients[i].id, type: this._clients[i].type, version: this._clients[i].version});
+      c.push({id: this._clients[i].id, name: this._clients[i].name, type: this._clients[i].type, version: this._clients[i].version});
     }
 
     return c;
