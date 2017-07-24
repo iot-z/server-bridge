@@ -25,10 +25,6 @@ class Client extends EventEmitter {
     return this.server.send(this, topic, data);
   }
 
-  ask(topic, data) {
-    return this.server.ask(this, topic, data);
-  }
-
   setTime() {
     this._time = Date.now();
   }
@@ -70,7 +66,7 @@ export default class Server extends EventEmitter {
     this._clients = {};
 
     this._pingDelay       = 7000;
-    this._pingTimeOut     = 1500;
+    this._pingTimeOut     = 15000;
     this._messageTimeOut  = 5000;
 
     this.socket = dgram.createSocket('udp4');
@@ -85,7 +81,7 @@ export default class Server extends EventEmitter {
       const client = this.getClient(payload.moduleId);
 
       if (!!client) {
-        client.setTime();
+        client.setTime(); // Update the time of last packet received
 
         if (payload.topic == 'ping') {
           // Do nothing
@@ -112,13 +108,15 @@ export default class Server extends EventEmitter {
 
     setInterval(() => {
       const now = Date.now();
-      let client, name;
+      let client, name, passed;
 
       for (name in this._clients) {
         client = this._clients[name];
 
-        if (now - client.time > this._pingDelay) {
-          if (now - client.time < this._pingTimeOut) {
+        passed = now - client.time;
+
+        if (passed > this._pingDelay) {
+          if (passed < this._pingTimeOut) {
             client.send('ping');
           } else {
             console.log('timeout', client.id);
@@ -134,7 +132,7 @@ export default class Server extends EventEmitter {
 
     this._clients[id] = client;
 
-    client.send('connect');
+    client.send('connect', { timeout: this._pingTimeOut });
     this.emit('connection', client);
   }
 
@@ -151,33 +149,32 @@ export default class Server extends EventEmitter {
     delete this._clients[id];
   }
 
-  send(client, topic, data) {
-    const d         = Q.defer(),
-    const messageId = this._genMessageID(),
-    const buffer    = new Buffer(JSON.stringify({messageId: messageId, topic: topic, data: data})),
-    const timeout;
+  async send(client, topic, data) {
+    return await new Promise((resolve, reject) => {
+      const messageId = this._genMessageID(),
+      const buffer    = new Buffer(JSON.stringify({ messageId: messageId, topic: topic, data: data })),
+      const timeout;
 
-    client.once(messageId, (data) => {
-      clearTimeout(timeout);
-      d.resolve(data);
+      client.once(messageId, (data) => {
+        clearTimeout(timeout);
+        resolve(data);
+      });
+
+      this.socket.send(buffer, 0, buffer.length, client.port, client.host, (err) => {
+        if (err) {
+          reject(err);
+        } else {
+          timeout = setTimeout(() => {
+            client.removeListener(messageId);
+            reject(err);
+          }, this._messageTimeOut);
+        }
+      });
     });
-
-    this.socket.send(buffer, 0, buffer.length, client.port, client.host, (err) => {
-      if (err) {
-        d.reject(err);
-      } else {
-        timeout = setTimeout(() => {
-          client.removeListener(messageId);
-          d.reject(err);
-        }, this._messageTimeOut);
-      }
-    });
-
-    return d.promise;
   }
 
   /**
-  * Genherate a message ID
+  * Generate a message ID
   * @return {int} Message ID
   */
   _genMessageID() {
@@ -189,10 +186,6 @@ export default class Server extends EventEmitter {
 
   close() {
     this.socket.close();
-  }
-
-  get host() {
-    return this._host;
   }
 
   get port() {
