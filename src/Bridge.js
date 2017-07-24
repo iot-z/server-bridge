@@ -19,11 +19,6 @@ serverUser.on('connection', (client) => {
 
   client.on('send', (playload) => {
     let module = serverModule.getClient(playload.moduleId);
-    module.send(playload.topic, playload.data);
-  });
-
-  client.on('ask', (playload) => {
-    let module = serverModule.getClient(playload.moduleId);
     module.ask(playload.topic, playload.data).then((data) => {
       client.emit(playload.id, data);
     });
