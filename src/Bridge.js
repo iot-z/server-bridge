@@ -1,10 +1,12 @@
-import ServerUser from 'socket.io';
-import ServerHttp from 'express';
-import ServerModule from './ServerModule';
+'use strict';
 
-// let serverHttp    = new ServerHttp();
-let serverUser    = new ServerUser(3000);
-let serverModule  = new ServerModule(4000);
+const ServerUser   = require('socket.io');
+const ServerHttp   = require('express');
+const ServerModule = require('./ServerModule');
+
+// let serverHttp     = new ServerHttp();
+let serverUser     = new ServerUser(3000);
+let serverModule   = new ServerModule(4000);
 
 serverModule.on('connection', (client) => {
     console.log('Module connected:', client.id, client.name, client.type, client.version);

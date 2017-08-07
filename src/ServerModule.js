@@ -1,9 +1,8 @@
-import {EventEmitter} from 'events';
-import dgram from 'dgram';
-import Q from 'q';
+const EventEmitter   = require('events');
+const dgram          = require('dgram');
 
 const MAX_MESSAGE_ID = 65535; // uint16
-let MESSAGE_ID = 0;
+let MESSAGE_ID       = 0;
 
 class Client extends EventEmitter {
   constructor(server, host, port, id, name, type, version) {
@@ -58,7 +57,7 @@ class Client extends EventEmitter {
   }
 }
 
-export default class Server extends EventEmitter {
+class Server extends EventEmitter {
   constructor(port) {
     super();
 
@@ -124,7 +123,7 @@ export default class Server extends EventEmitter {
           }
         }
       }
-    }, 1000/30);
+    }, 1000 / 30);
   }
 
   newClient(host, port, id, name, type, version) {
@@ -150,10 +149,11 @@ export default class Server extends EventEmitter {
   }
 
   async send(client, topic, data) {
+    console.log(topic, data);
     return await new Promise((resolve, reject) => {
-      const messageId = this._genMessageID(),
-      const buffer    = new Buffer(JSON.stringify({ messageId: messageId, topic: topic, data: data })),
-      const timeout;
+      const messageId = this._genMessageID();
+      const buffer    = new Buffer(JSON.stringify({ messageId: messageId, topic: topic, data: data }));
+      let timeout;
 
       client.once(messageId, (data) => {
         clearTimeout(timeout);
@@ -165,7 +165,7 @@ export default class Server extends EventEmitter {
           reject(err);
         } else {
           timeout = setTimeout(() => {
-            client.removeListener(messageId);
+            client.removeAllListeners(messageId);
             reject(err);
           }, this._messageTimeOut);
         }
@@ -202,3 +202,5 @@ export default class Server extends EventEmitter {
     return c;
   }
 }
+
+module.exports = Server;
