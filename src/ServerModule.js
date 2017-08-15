@@ -15,9 +15,9 @@ class Client extends EventEmitter {
     this._type    = type;
     this._version = version;
 
-    this.setTime();
-
     this.server = server;
+
+    this.setTime();
   }
 
   send(topic, data) {
@@ -26,6 +26,18 @@ class Client extends EventEmitter {
 
   setTime() {
     this._time = Date.now();
+
+    clearInterval(this._intervalPing);
+    clearTimeout(this._timeoutConnetcion);
+
+    this._intervalPing = setInterval(() => {
+        this.send('ping');
+    }, this.server._pingDelay);
+
+    this._timeoutConnetcion = setTimeout(() => {
+      console.log('timeout', this.id);
+      this.server.rmClient(this.id);
+    }, this.server._connectionTimeOut);
   }
 
   get time() {
@@ -64,9 +76,9 @@ class Server extends EventEmitter {
     this._port    = port;
     this._clients = {};
 
-    this._pingDelay       = 7000;
-    this._pingTimeOut     = 15000;
-    this._messageTimeOut  = 5000;
+    this._pingDelay         = 5000;
+    this._messageTimeOut    = 5000;
+    this._connectionTimeOut = 16000;
 
     this.socket = dgram.createSocket('udp4');
 
@@ -79,14 +91,13 @@ class Server extends EventEmitter {
       const payload = JSON.parse(buffer.toString());
       const client = this.getClient(payload.moduleId);
 
-      if (!!client) {
-        client.setTime(); // Update the time of last packet received
+      // console.log('received', payload.topic);
 
-        if (payload.topic == 'ping') {
-          // Do nothing
-        } else if (payload.topic == 'disconnect') {
+      if (!!client) {
+        if (payload.topic == 'connect' || payload.topic == 'disconnect') {
           this.rmClient(payload.moduleId);
         } else {
+          client.setTime(); // Update the time of last packet received
           client.emit(payload.topic, payload.data);
           client.emit('*', payload.topic, payload.data);
           // this.emit(payload.topic, payload.data);
@@ -104,26 +115,6 @@ class Server extends EventEmitter {
     });
 
     this.socket.bind(this._port);
-
-    setInterval(() => {
-      const now = Date.now();
-      let client, name, passed;
-
-      for (name in this._clients) {
-        client = this._clients[name];
-
-        passed = now - client.time;
-
-        if (passed > this._pingDelay) {
-          if (passed < this._pingTimeOut) {
-            client.send('ping');
-          } else {
-            console.log('timeout', client.id);
-            this.rmClient(client.id);
-          }
-        }
-      }
-    }, 1000 / 30);
   }
 
   newClient(host, port, id, name, type, version) {
@@ -131,7 +122,7 @@ class Server extends EventEmitter {
 
     this._clients[id] = client;
 
-    client.send('connect', { timeout: this._pingTimeOut });
+    client.send('connect', { timeout: this._connectionTimeOut });
     this.emit('connection', client);
   }
 
@@ -142,6 +133,9 @@ class Server extends EventEmitter {
   rmClient(id) {
     const client = this._clients[id];
 
+    clearInterval(client._intervalPing);
+    clearTimeout(client._timeoutConnetcion);
+
     client.send('disconnect');
     client.emit('disconected');
 
@@ -149,7 +143,6 @@ class Server extends EventEmitter {
   }
 
   async send(client, topic, data) {
-    console.log(topic, data);
     return await new Promise((resolve, reject) => {
       const messageId = this._genMessageID();
       const buffer    = new Buffer(JSON.stringify({ messageId: messageId, topic: topic, data: data }));
@@ -159,6 +152,8 @@ class Server extends EventEmitter {
         clearTimeout(timeout);
         resolve(data);
       });
+
+      // console.log('send', topic, data);
 
       this.socket.send(buffer, 0, buffer.length, client.port, client.host, (err) => {
         if (err) {

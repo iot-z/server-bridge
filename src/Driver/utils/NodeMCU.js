@@ -1,0 +1,17 @@
+module.exports.D0          = 16;
+module.exports.D1          = 5;
+module.exports.D2          = 4;
+module.exports.D3          = 0;
+module.exports.D4          = 2;
+module.exports.D5          = 14;
+module.exports.D6          = 12;
+module.exports.D7          = 13;
+module.exports.D8          = 15;
+module.exports.D9          = 3;
+module.exports.D10         = 1;
+module.exports.D11         = 9;
+module.exports.D12         = 10;
+module.exports.SDA         = 4;
+module.exports.SCL         = 5;
+module.exports.LED_BUILTIN = 2;
+module.exports.BUILTIN_LED = 2;
