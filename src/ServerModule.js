@@ -15,7 +15,10 @@ class Client extends EventEmitter {
     this._type    = type;
     this._version = version;
 
-    this.server = server;
+    this.server   = server;
+
+    this.driver   = new Driver(this);
+    this.driver.state = MakeObservable(this.driver.state, this.driver.handleChange.bind(this.driver), true);
 
     this.setTime();
   }
@@ -137,7 +140,7 @@ class Server extends EventEmitter {
     clearTimeout(client._timeoutConnetcion);
 
     client.send('disconnect');
-    client.emit('disconected');
+    client.emit('disconnect');
 
     delete this._clients[id];
   }

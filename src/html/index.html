@@ -20,10 +20,8 @@
         var socket = io.connect('http://localhost:3000/');
 
         socket.on('state', function (_state) {
-            console.log(_state);
-
             state = MakeObservable(_state, function(prop, oldVal, newVal) {
-                socket.emit('ch', { prop: prop, val: newVal });
+                socket.emit('change', { prop: prop, val: newVal });
             });
 
             app = new Vue({

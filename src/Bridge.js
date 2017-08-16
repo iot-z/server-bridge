@@ -15,8 +15,9 @@ let driver;
 serverModule.on('connection', (client) => {
     console.log('Module connected:', client.id, client.name, client.type, client.version);
 
-    driver = new Driver(client);
-    driver.state = MakeObservable(driver.state, driver.handleChange.bind(driver), true);
+    client.on('disconnect', () => {
+      console.log('Module disconnected');
+    });
 });
 
 serverUser.on('connection', (client) => {
