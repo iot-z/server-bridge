@@ -43,6 +43,10 @@ class Client extends EventEmitter {
     }, this.server._connectionTimeOut);
   }
 
+  get state() {
+    return this.driver.state;
+  }
+
   get time() {
     return this._time;
   }
@@ -191,13 +195,22 @@ class Server extends EventEmitter {
   }
 
   get clients() {
-    let c = [];
+    let list = [];
+    let client;
 
     for (let i in this._clients) {
-      c.push({id: this._clients[i].id, name: this._clients[i].name, type: this._clients[i].type, version: this._clients[i].version});
+      client = this._clients[i];
+
+      list.push({
+        id:       client.id,
+        name:     client.name,
+        type:     client.type,
+        version:  client.version,
+        state:    client.state,
+      });
     }
 
-    return c;
+    return list;
   }
 }
 

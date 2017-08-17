@@ -18,6 +18,8 @@ serverModule.on('connection', (client) => {
     client.on('disconnect', () => {
       console.log('Module disconnected');
     });
+
+    serverUser.emit('an');
 });
 
 serverUser.on('connection', (client) => {
@@ -28,10 +30,10 @@ serverUser.on('connection', (client) => {
   });
 
   client.on('change', (playload) => {
-    driver.state.set(playload.prop, playload.val);
+    serverModule.getClient(playload.moduleId).set()
   });
 
-  client.emit('state', driver.state);
+  client.emit('data', serverModule.clients);
 });
 
 // serverHttp.use(ServerHttp.static('public'));
