@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test</title>
+</head>
+<body>
+    Iframe
+    <div id="app">
+        <label>
+            <input type="checkbox" v-model="D3"> Toggle
+        </label>
+    </div>
+
+    <script src="https://unpkg.com/vue"></script>
+    <script src="../MakeObservable.js"></script>
+    <script src="../IOTZ.js"></script>
+    <script>
+        IOTZ.init(function(state){
+            app = new Vue({
+                el: '#app',
+                data: state
+            });
+        });
+    </script>
+</body>
+</html>

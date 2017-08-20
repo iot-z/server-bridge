@@ -3,8 +3,6 @@
 const ServerUser   = require('socket.io');
 const ServerHttp   = require('express');
 const ServerModule = require('./ServerModule');
-const Driver       = require('./Driver/Driver');
-const MakeObservable = require('./Driver/utils/MakeObservable');
 
 // let serverHttp     = new ServerHttp();
 let serverUser     = new ServerUser(3000);
@@ -30,7 +28,8 @@ serverUser.on('connection', (client) => {
   });
 
   client.on('change', (playload) => {
-    serverModule.getClient(playload.moduleId).set()
+    console.log('change', playload);
+    serverModule.getClient(playload.moduleId).state.set(playload.prop, playload.val);
   });
 
   client.emit('data', serverModule.data);

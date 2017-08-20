@@ -1,5 +1,7 @@
 const EventEmitter   = require('events');
 const dgram          = require('dgram');
+const Driver         = require('./Driver/Driver');
+const MakeObservable = require('./Driver/utils/MakeObservable');
 
 const MAX_MESSAGE_ID = 65535; // uint16
 let MESSAGE_ID       = 0;

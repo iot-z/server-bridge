@@ -5,28 +5,28 @@
     <title>Test</title>
 </head>
 <body>
-    <div id="app">
-        <label>
-            <input type="checkbox" v-model="D3"> Toggle
-        </label>
-    </div>
+    Teste
 
-    <script src="https://unpkg.com/vue"></script>
+    <iframe id="ìframe" src="ui-module-default/" width="100%" height="100%"></iframe>
+
     <script src="http://localhost:3000/socket.io/socket.io.js"></script>
-
-    <script src="MakeObservable.js"></script>
     <script>
         var state, app;
         var socket = io.connect('http://localhost:3000/');
 
-        socket.on('state', function (_state) {
-            state = MakeObservable(_state, function(prop, oldVal, newVal) {
-                socket.emit('change', { prop: prop, val: newVal });
+        socket.on('data', function (data) {
+            var module = document.getElementById('ìframe').contentWindow;
+
+            module.addEventListener('load', function(){
+                module.postMessage({
+                    type: 'create',
+                    moduleId: data.clients[0].id,
+                    state: data.clients[0].state
+                }, '*');
             });
 
-            app = new Vue({
-                el: '#app',
-                data: state
+            window.addEventListener('message', function(e) {
+                socket.emit(e.data.type, e.data.data);
             });
         });
     </script>
