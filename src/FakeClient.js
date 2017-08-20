@@ -1,8 +1,7 @@
-import { EventEmitter } from 'events';
-import dgram from 'dgram';
-import Q from 'q';
+const EventEmitter = require('events');
+const dgram = require('dgram');
 
-export default class Client extends EventEmitter {
+class Client extends EventEmitter {
     constructor() {
         super();
 
@@ -55,3 +54,5 @@ export default class Client extends EventEmitter {
         return this._port;
     }
 }
+
+module.exports = Client;

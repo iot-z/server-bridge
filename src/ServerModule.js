@@ -34,7 +34,7 @@ class Client extends EventEmitter {
     clearTimeout(this._timeoutConnetcion);
 
     this._intervalPing = setInterval(() => {
-        this.send('ping');
+      this.send('ping');
     }, this.server._pingDelay);
 
     this._timeoutConnetcion = setTimeout(() => {
@@ -107,7 +107,7 @@ class Server extends EventEmitter {
           client.setTime(); // Update the time of last packet received
           client.emit(payload.topic, payload.data);
           client.emit('*', payload.topic, payload.data);
-          // this.emit(payload.topic, payload.data);
+          this.emit(`${payload.moduleId}.${payload.topic}`, payload.data);
         }
       } else {
         if (payload.topic == 'connect') {
@@ -133,10 +133,6 @@ class Server extends EventEmitter {
     this.emit('connection', client);
   }
 
-  getClient(id) {
-    return this._clients[id];
-  }
-
   rmClient(id) {
     const client = this._clients[id];
 
@@ -147,6 +143,10 @@ class Server extends EventEmitter {
     client.emit('disconnect');
 
     delete this._clients[id];
+  }
+
+  getClient(id) {
+    return this._clients[id];
   }
 
   async send(client, topic, data) {
@@ -211,6 +211,12 @@ class Server extends EventEmitter {
     }
 
     return list;
+  }
+
+  get data() {
+    return {
+      clients: this.clients,
+    }
   }
 }
 

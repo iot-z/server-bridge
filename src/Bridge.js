@@ -19,21 +19,21 @@ serverModule.on('connection', (client) => {
       console.log('Module disconnected');
     });
 
-    serverUser.emit('an');
+    serverUser.emit('data', serverModule.data);
 });
 
 serverUser.on('connection', (client) => {
-  console.log('connection');
+  console.log('User conected');
 
   client.on('disconnect', () => {
-    console.log('user disconnected');
+    console.log('User disconnected');
   });
 
   client.on('change', (playload) => {
     serverModule.getClient(playload.moduleId).set()
   });
 
-  client.emit('data', serverModule.clients);
+  client.emit('data', serverModule.data);
 });
 
 // serverHttp.use(ServerHttp.static('public'));
