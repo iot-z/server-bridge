@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test</title>
+</head>
+<body>
+    <div id="app">
+        <label>
+            <input type="checkbox" v-model="D3"> Toggle
+        </label>
+    </div>
+
+    <script src="https://unpkg.com/vue"></script>
+    <script src="http://localhost:3000/socket.io/socket.io.js"></script>
+
+    <script src="MakeObservable.js"></script>
+    <script>
+        var state, app;
+        var socket = io.connect('http://localhost:3000/');
+
+        socket.on('data', function (data) {
+            state = MakeObservable(data.clients[0].state, function(prop, oldVal, newVal) {
+                socket.emit('change', { moduleId: data.clients[0].id, prop: prop, val: newVal });
+            });
+
+            app = new Vue({
+                el: '#app',
+                data: state
+            });
+        });
+    </script>
+</body>
+</html>
