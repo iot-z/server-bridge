@@ -23,16 +23,15 @@ class Client extends EventEmitter {
         });
     }
 
-    send(topic, ...message) {
-        let d = Q.defer(),
-            buffer = new Buffer(topic+(message.length ? ':'+message.join('|') : ''));
+    send(topic, data) {
+        return new Promise((resolve, reject) => {
+            const buffer = new Buffer(JSON.stringify({topic: topic, data: data}));
 
-        this.socket.send(buffer, 0, buffer.length, this.port, this.host, (err) => {
-            if (err) d.reject(err);
-            else d.resolve();
+            this.socket.send(buffer, 0, buffer.length, this.port, this.host, (err) => {console.log(err);
+                if (err) reject(err);
+                else resolve();
+            });
         });
-
-        return d.promise;
     }
 
     close() {
@@ -43,7 +42,7 @@ class Client extends EventEmitter {
         this._host = host;
         this._port = port;
 
-        return this.send('hi');
+        return this.send('connect');
     }
 
     get host() {
