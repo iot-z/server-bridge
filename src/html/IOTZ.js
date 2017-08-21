@@ -2,7 +2,6 @@ const IOTZ = {
   _state: {},
   init(fn) {
     window.addEventListener('message', function(e) {
-        console.log(e);
       if (e.data.type == 'create') {
         this._state = MakeObservable(e.data.state, function(prop, oldVal, newVal) {
           parent.postMessage({

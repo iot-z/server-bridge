@@ -28,7 +28,6 @@ serverUser.on('connection', (client) => {
   });
 
   client.on('change', (playload) => {
-    console.log('change', playload);
     serverModule.getClient(playload.moduleId).state.set(playload.prop, playload.val);
   });
 

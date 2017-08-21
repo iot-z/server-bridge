@@ -13,8 +13,13 @@ class Driver extends DriverDefault {
   }
 
   handleChange(prop, oldVal, newVal) {
-    console.log('handleChange', prop, oldVal, newVal);
     this.digitalWrite(eval(prop), newVal ? HIGH : LOW);
+
+    // try {
+    //     this.digitalWrite(eval(prop), newVal ? HIGH : LOW);
+    // } catch(e) {
+    //     this.state.set(prop, oldVal);
+    // }
   }
 
   destroy() {

@@ -100,8 +100,6 @@ class Server extends EventEmitter {
       const payload = JSON.parse(buffer.toString());
       const client = this.getClient(payload.moduleId);
 
-      // console.log('received', payload.topic);
-
       if (!!client) {
         if (payload.topic == 'connect' || payload.topic == 'disconnect') {
           this.rmClient(payload.moduleId);
@@ -162,15 +160,17 @@ class Server extends EventEmitter {
         resolve(data);
       });
 
-      // console.log('send', topic, data);
+      // console.log('send', messageId, topic);
 
       this.socket.send(buffer, 0, buffer.length, client.port, client.host, (err) => {
         if (err) {
           reject(err);
         } else {
           timeout = setTimeout(() => {
+            // console.log('timeout', messageId);
+
             client.removeAllListeners(messageId);
-            reject(err);
+            reject();
           }, this._messageTimeOut);
         }
       });
