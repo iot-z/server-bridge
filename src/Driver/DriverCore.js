@@ -15,7 +15,30 @@ class DriverCore extends EventEmitter {
       this.emit(topic, data);
     });
 
-    this.state = {};
+    // UI interface API
+    this.state   = {};
+    this.actions = {};
+  }
+
+  /**
+   * Handler for changes on state on the UI
+   * @param  {string} prop   Path in dot style of the changed property
+   * @param  {any} oldVal    Old value of property
+   * @param  {any} newVal    New value of property
+   * @return {void}
+   */
+  onChange(prop, oldVal, newVal) {
+    // User implementation
+  }
+
+  /**
+   * Handler of call actions on the UI
+   * @param  {string} action   The action/method name
+   * @param  {array} params    All params to be passed to the function
+   * @return {void}
+   */
+  onCall(action, params) {
+    this.actions[action].apply(this, params);
   }
 
   /**
@@ -27,19 +50,19 @@ class DriverCore extends EventEmitter {
   }
 
   get id() {
-    return this._client.id;
+    return this.client.id;
   }
 
   get name() {
-    return this._client.name;
+    return this.client.name;
   }
 
   get type() {
-    return this._client.type;
+    return this.client.type;
   }
 
   get version() {
-    return this._client.version;
+    return this.client.version;
   }
 }
 

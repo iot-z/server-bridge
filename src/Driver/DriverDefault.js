@@ -16,6 +16,9 @@ const LSBFIRST       = 'LSBFIRST';
 class DriverDefault extends DriverCore {
   /**
   * Constructor
+  * @param  {string} id
+  * @param  {string} type
+  * @param  {string} version
   * @param  {ServerClient} client
   * @return {void}
   */
@@ -35,11 +38,11 @@ class DriverDefault extends DriverCore {
   * @param  {INPUT|OUTPUT} mode
   * @return {void}
   */
-  pinMode(pin, mode) {
+  async pinMode(pin, mode) {
     if (typeof pin !== 'number') { throw new TypeError('The param "pin" must be a number'); }
     if (this._valuesPinMode.indexOf(mode) === -1) { throw new Error('Invalid value of param "mode": ' + mode); }
 
-    return this.client.send('pinMode', { pin: pin, mode: mode });
+    return await this.client.send('pinMode', { pin: pin, mode: mode });
   }
 
   /**
@@ -48,11 +51,11 @@ class DriverDefault extends DriverCore {
   * @param  {HIGH|LOW} level
   * @return {void}
   */
-  digitalWrite(pin, level) {
+  async digitalWrite(pin, level) {
     if (typeof pin !== 'number') { throw new TypeError('The param "pin" must be a number'); }
     if (this._valuesDigitalLevel.indexOf(level) === -1) { throw new Error('Invalid value of param "level": ' + level); }
 
-    return this.client.send('digitalWrite', { pin: pin, level: level });
+    return await this.client.send('digitalWrite', { pin: pin, level: level });
   }
 
   /**
@@ -60,10 +63,10 @@ class DriverDefault extends DriverCore {
   * @param  {integer} pin
   * @return {Promise}
   */
-  digitalRead(pin) {
+  async digitalRead(pin) {
     if (typeof pin !== 'number') { throw new TypeError('The param "pin" must be a number'); }
 
-    return this.client.send('digitalRead', { pin: pin });
+    return await this.client.send('digitalRead', { pin: pin });
   }
 
   // Analog I/O
@@ -72,10 +75,10 @@ class DriverDefault extends DriverCore {
   * @param  {[DEFAULT, EXTERNAL, INTERNAL]} type
   * @return {void}
   */
-  analogReference(value) {
+  async analogReference(value) {
     if (this._valuesAnalogReference.indexOf(mode) === -1) { throw new Error('Invalid value of param "value": ' + value); }
 
-    return this.client.send('analogReference', { value: value });
+    return await this.client.send('analogReference', { value: value });
   }
 
   /**
@@ -83,10 +86,10 @@ class DriverDefault extends DriverCore {
   * @param  {integer} pin
   * @return {Promise} int (0 to 1023)
   */
-  analogRead(pin) {
+  async analogRead(pin) {
     if (typeof pin !== 'number') { throw new TypeError('The param "pin" must be a number'); }
 
-    return this.client.send('analogRead', { pin: pin });
+    return await this.client.send('analogRead', { pin: pin });
   }
 
   /**
@@ -95,10 +98,10 @@ class DriverDefault extends DriverCore {
   * @param  {integer} value
   * @return {void}
   */
-  analogWrite(pin, value) {
+  async analogWrite(pin, value) {
     if (typeof pin !== 'number') { throw new TypeError('The param "pin" must be a number'); }
 
-    return this.client.send('analogWrite', { pin: pin, value: value });
+    return await this.client.send('analogWrite', { pin: pin, value: value });
   }
 
   // Advanced I/O
@@ -110,10 +113,10 @@ class DriverDefault extends DriverCore {
   * @param  {long} [duration]     the duration of the tone in milliseconds (optional)
   * @return {void}
   */
-  tone(pin, frequency, duration) {
+  async tone(pin, frequency, duration) {
     if (typeof pin !== 'number') { throw new TypeError('The param "pin" must be a number'); }
 
-    return this.client.send('tone', { pin: pin, frequency: frequency, duration: duration });
+    return await this.client.send('tone', { pin: pin, frequency: frequency, duration: duration });
   }
 
   /**
@@ -121,10 +124,10 @@ class DriverDefault extends DriverCore {
   * @param  {integer} pin
   * @return {void}
   */
-  noTone(pin) {
+  async noTone(pin) {
     if (typeof pin !== 'number') { throw new TypeError('The param "pin" must be a number'); }
 
-    return this.client.send('noTone', { pin: pin });
+    return await this.client.send('noTone', { pin: pin });
   }
 
   /**
@@ -135,12 +138,12 @@ class DriverDefault extends DriverCore {
   * @param  {byte} value
   * @return {void}
   */
-  shiftOut(dataPin, clockPin, bitOrder, value) {
+  async shiftOut(dataPin, clockPin, bitOrder, value) {
     if (typeof dataPin !== 'number') { throw new TypeError('The param "dataPin" must be a number'); }
     if (typeof clockPin !== 'number') { throw new TypeError('The param "clockPin" must be a number'); }
     if (this._valuesBitOrder.indexOf(bitOrder) === -1) { throw new Error('Invalid value of param "bitOrder": ' + bitOrder); }
 
-    return this.client.send('shiftOut', { dataPin: dataPin, clockPin: clockPin, bitOrder: bitOrder, value: value });
+    return await this.client.send('shiftOut', { dataPin: dataPin, clockPin: clockPin, bitOrder: bitOrder, value: value });
   }
 
   /**
@@ -150,12 +153,12 @@ class DriverDefault extends DriverCore {
   * @param  {MSBFIRST|LSBFIRST} bitOrder
   * @return {Promise}
   */
-  shiftIn(dataPin, clockPin, bitOrder) {
+  async shiftIn(dataPin, clockPin, bitOrder) {
     if (typeof dataPin !== 'number') { throw new TypeError('The param "dataPin" must be a number'); }
     if (typeof clockPin !== 'number') { throw new TypeError('The param "clockPin" must be a number'); }
     if (this._valuesBitOrder.indexOf(bitOrder) === -1) { throw new Error('Invalid value of param "bitOrder": ' + bitOrder); }
 
-    return this.client.send('shiftIn', { dataPin: dataPin, clockPin: clockPin, bitOrder: bitOrder });
+    return await this.client.send('shiftIn', { dataPin: dataPin, clockPin: clockPin, bitOrder: bitOrder });
   }
 
   /**
@@ -165,11 +168,11 @@ class DriverDefault extends DriverCore {
   * @param  {long} [timeout]     the number of microseconds to wait for the pulse to be completed
   * @return {Promise}
   */
-  pulseIn(pin, value, timeout) {
+  async pulseIn(pin, value, timeout) {
     if (typeof pin !== 'number') { throw new TypeError('The param "pin" must be a number'); }
     if (this._valuesDigitalLevel.indexOf(value) === -1) { throw new Error('Invalid value of param "value": ' + value); }
 
-    return this.client.send('pulseIn', { pin: pin, value: value, timeout: timeout });
+    return await this.client.send('pulseIn', { pin: pin, value: value, timeout: timeout });
   }
 }
 

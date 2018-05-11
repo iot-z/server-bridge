@@ -15,8 +15,8 @@ const IOTZ = {
         });
 
         fn(this._state);
-      } else if (e.type == 'update') {
-        this._state.set(e.prop, e.val);
+      } else if (e.data.type == 'update') {
+        this._state.set(e.data.prop, e.data.val, false);
       }
     });
   }

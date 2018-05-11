@@ -8,8 +8,6 @@ const ServerModule = require('./ServerModule');
 let serverUser     = new ServerUser(3000);
 let serverModule   = new ServerModule(4000);
 
-let driver;
-
 serverModule.on('connection', (client) => {
     console.log('Module connected:', client.id, client.name, client.type, client.version);
 

@@ -11,23 +11,36 @@
 
     <script src="http://localhost:3000/socket.io/socket.io.js"></script>
     <script>
-        var state, app;
-        var socket = io.connect('http://localhost:3000/');
+        const socket = io.connect('http://localhost:3000/');
+
+        const $ = document.querySelector;
+        const $$ = document.querySelectorAll;
+
+        socket.on('update', function (data) {
+            const iframe = $('#'+data.moduleId).contentWindow;
+
+            iframe.postMessage({
+                type: 'update',
+                prop: data.prop,
+                val: data.val,
+            }, '*');
+        });
 
         socket.on('data', function (data) {
-            var module = document.getElementById('ìframe').contentWindow;
+            for (let client of data.clients) {
+                const iframe = $('#'+client.iframe).contentWindow;
 
-            module.addEventListener('load', function(){
-                module.postMessage({
-                    type: 'create',
-                    moduleId: data.clients[0].id,
-                    state: data.clients[0].state
-                }, '*');
-            });
+                iframe.addEventListener('load', function(){
+                    iframe.postMessage({
+                        type: 'create',
+                        state: data.clients[0].state
+                    }, '*');
+                });
 
-            window.addEventListener('message', function(e) {
-                socket.emit(e.data.type, e.data.data);
-            });
+                window.addEventListener('message', function(e) {
+                    socket.emit(e.data.type, e.data.data);
+                });
+            }
         });
     </script>
 </body>

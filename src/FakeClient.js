@@ -5,6 +5,11 @@ class Client extends EventEmitter {
     constructor() {
         super();
 
+        this.moduleId = 'AAAAA-AAAAA-AAAAA-AAAAA';
+        this.name     = 'NAME';
+        this.type     = 'TYPE';
+        this.version  = '1.0.0';
+
         this.socket = dgram.createSocket('udp4');
 
         this.socket.on('error', (err) => {
@@ -13,21 +18,22 @@ class Client extends EventEmitter {
         });
 
         this.socket.on('message', (msg, rinfo) => {
-            // topic:message
-            let data   = msg.toString().split(/([^:]+):(.*)/),
-              topic    = data[1] ? data[1] : msg.toString(),
-              params   = data[2] ? data[2].split('|') : [];
+            const payload = JSON.parse(msg);
 
-            this.emit(topic, ...params);
-            this.emit('message', topic, ...params);
+            console.log(payload);
+
+            this.emit(payload.topic, payload.params);
+            this.emit('message', payload.topic, payload.data);
+
+            this.send(payload.messageId);
         });
     }
 
-    send(topic, data) {
+    send(topic, data = {}) {
         return new Promise((resolve, reject) => {
-            const buffer = new Buffer(JSON.stringify({topic: topic, data: data}));
+            const buffer = new Buffer(JSON.stringify({ moduleId: this.moduleId, topic: topic, data: data }));
 
-            this.socket.send(buffer, 0, buffer.length, this.port, this.host, (err) => {console.log(err);
+            this.socket.send(buffer, 0, buffer.length, this.port, this.host, (err) => {
                 if (err) reject(err);
                 else resolve();
             });
@@ -42,7 +48,7 @@ class Client extends EventEmitter {
         this._host = host;
         this._port = port;
 
-        return this.send('connect');
+        return this.send('connect', { name: this.name, type: this.type, version: this.version });
     }
 
     get host() {

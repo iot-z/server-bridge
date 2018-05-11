@@ -1,7 +1,8 @@
 const EventEmitter   = require('events');
 const dgram          = require('dgram');
-const Driver         = require('./Driver/Driver');
-const MakeObservable = require('./Driver/utils/MakeObservable');
+const sqlite3        = require('sqlite3').verbose();
+const { Driver }     = require('./Driver/Driver');
+const { MakeObservable, MakeObservableFn } = require('./Driver/utils/MakeObservable');
 
 const MAX_MESSAGE_ID = 65535; // uint16
 let MESSAGE_ID       = 0;
@@ -10,23 +11,33 @@ class Client extends EventEmitter {
   constructor(server, host, port, id, name, type, version) {
     super();
 
-    this._host    = host;
-    this._port    = port;
-    this._id      = id;
-    this._name    = name;
-    this._type    = type;
-    this._version = version;
+    this._host        = host;
+    this._port        = port;
+    this._id          = id;
+    this._name        = name;
+    this._type        = type;
+    this._version     = version;
 
-    this.server   = server;
+    this.server       = server;
+  }
 
-    this.driver   = new Driver(this);
-    this.driver.state = MakeObservable(this.driver.state, this.driver.handleChange.bind(this.driver), true);
+  async connect() {
+    await this.send('connect', { timeout: this.server._connectionTimeOut });
+    this.emit('connection', this);
+
+    this.driver       = new Driver(this);
+    this.driver.state = MakeObservable(this.driver.state, this.driver.onChange.bind(this.driver), true);
 
     this.setTime();
   }
 
-  send(topic, data) {
-    return this.server.send(this, topic, data);
+  async disconnect() {
+    await this.send('disconnect');
+    this.emit('disconnect');
+  }
+
+  async send(topic, data) {
+    return await this.server.send(this, topic, data);
   }
 
   setTime() {
@@ -47,6 +58,10 @@ class Client extends EventEmitter {
 
   get state() {
     return this.driver.state;
+  }
+
+  get actions() {
+    return this.driver.actions;
   }
 
   get time() {
@@ -82,14 +97,37 @@ class Server extends EventEmitter {
   constructor(port) {
     super();
 
-    this._port    = port;
-    this._clients = {};
-
     this._pingDelay         = 5000;
-    this._messageTimeOut    = 5000;
+    this._messageTries      = 3;
+    this._messageTimeOut    = 1000;
     this._connectionTimeOut = 16000;
 
-    this.socket = dgram.createSocket('udp4');
+    this._port              = port;
+    this._clients           = {};
+    this._modules           = {};
+
+    this.db                 = new sqlite3.Database('./iotz.db');
+    this.socket             = dgram.createSocket('udp4');
+
+    this.db.all('SELECT * FROM modules', [], (err, rows) => {
+      if (err) {
+        throw err;
+      }
+
+      rows.forEach(({id, type, version, driver, ui, created_at, connected_at, status}) => {
+        this._modules.push({
+          connected: false,
+          id,
+          type,
+          version,
+          driver,
+          ui,
+          created_at,
+          connected_at,
+          status,
+        });
+      });
+    });
 
     this.socket.on('error', (err) => {
       console.log(`server error:\n${err.stack}`);
@@ -124,23 +162,21 @@ class Server extends EventEmitter {
     this.socket.bind(this._port);
   }
 
-  newClient(host, port, id, name, type, version) {
+  async newClient(host, port, id, name, type, version) {
     const client = new Client(this, host, port, id, name, type, version);
 
     this._clients[id] = client;
 
-    client.send('connect', { timeout: this._connectionTimeOut });
-    this.emit('connection', client);
+    await client.connect();
   }
 
-  rmClient(id) {
+  async rmClient(id) {
     const client = this._clients[id];
 
     clearInterval(client._intervalPing);
     clearTimeout(client._timeoutConnetcion);
 
-    client.send('disconnect');
-    client.emit('disconnect');
+    await client.disconnect();
 
     delete this._clients[id];
   }
@@ -153,6 +189,8 @@ class Server extends EventEmitter {
     return await new Promise((resolve, reject) => {
       const messageId = this._genMessageID();
       const buffer    = new Buffer(JSON.stringify({ messageId: messageId, topic: topic, data: data }));
+
+      let tries       = this._messageTries;
       let timeout;
 
       client.once(messageId, (data) => {
@@ -162,18 +200,26 @@ class Server extends EventEmitter {
 
       // console.log('send', messageId, topic);
 
-      this.socket.send(buffer, 0, buffer.length, client.port, client.host, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          timeout = setTimeout(() => {
-            // console.log('timeout', messageId);
+      const send = () => {
+        this.socket.send(buffer, 0, buffer.length, client.port, client.host, (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            timeout = setTimeout(() => {
+              if (--tries) {
+                console.log('retrying', messageId);
+                send();
+              } else {
+                console.log('timeout', messageId);
+                client.removeAllListeners(messageId);
+                reject();
+              }
+            }, this._messageTimeOut);
+          }
+        });
+      }
 
-            client.removeAllListeners(messageId);
-            reject();
-          }, this._messageTimeOut);
-        }
-      });
+      send();
     });
   }
 
@@ -209,6 +255,7 @@ class Server extends EventEmitter {
         type:     client.type,
         version:  client.version,
         state:    client.state,
+        actions:  client.actions,
       });
     }
 
@@ -217,7 +264,7 @@ class Server extends EventEmitter {
 
   get data() {
     return {
-      clients: this.clients,
+      modules: this.clients,
     }
   }
 }

@@ -3,17 +3,10 @@
   "version": "1.0.0",
   "author": "Renan Vaz <renan.c.vaz@gmail.com>",
   "license": "ISC",
-  "scripts": {
-    "build": "rm -r lib/* && babel src -d lib",
-    "watch": ""
-  },
   "dependencies": {
     "express": "^4.15.4",
-    "socket.io": "^2.0.3"
-  },
-  "devDependencies": {
-    "babel-cli": "^6.24.1",
-    "babel-preset-env": "^1.6.0"
+    "socket.io": "^2.0.3",
+    "sqlite3": "^4.0.0"
   },
   "repository": {
     "type": "git",

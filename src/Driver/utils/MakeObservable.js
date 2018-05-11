@@ -45,51 +45,30 @@ function MakeObservable(obj, fn, triggerOnSetup = false, path = '') {
 
   Object.defineProperty(observable, 'get', {
     value: function get(prop) {
-      let obj = this;
-      let parts = prop.split('.');
-
-      if (Array.isArray(parts)) {
-        let last    = parts.pop();
-        let l       = parts.length;
-        let i       = 1;
-        let current = parts[0];
-
-        while (i < l && (obj = obj[current])) {
-          current = parts[i];
-          i++;
+      return prop.split('.').reduce((nestedObject, key) => {
+        if (nestedObject && key in nestedObject) {
+          return nestedObject[key];
         }
 
-        if (obj) {
-          return obj[last];
-        }
-      } else {
-        throw 'parts is not valid array';
-      }
+        return undefined;
+      }, this);
     }
   });
 
   Object.defineProperty(observable, 'set', {
     value: function set(prop, value) {
-      let obj = this;
       let parts = prop.split('.');
+      let last = parts.pop();
 
-      if (Array.isArray(parts)) {
-        let last    = parts.pop();
-        let l       = parts.length;
-        let i       = 1;
-        let current = parts[0];
-
-        while (i < l && (obj = obj[current])) {
-          current = parts[i];
-          i++;
+      let nestedObject = parts.reduce((nestedObject, key) => {
+        if (nestedObject && key in nestedObject) {
+          return nestedObject[key];
         }
 
-        if (obj) {
-          obj[last] = value;
-        }
-      } else {
-        throw 'parts is not valid array';
-      }
+        return undefined;
+      }, this);
+
+      nestedObject[last] = value;
     }
   });
 
@@ -104,4 +83,26 @@ function MakeObservable(obj, fn, triggerOnSetup = false, path = '') {
   return observable;
 }
 
-module.exports = MakeObservable;
+function MakeObservableFn(obj, fn) {
+  const observable = {};
+
+  for (let prop in obj) {
+    if (isFunction(obj[prop])) {
+      Object.defineProperty(observable, prop, {
+        value: function (...params) {
+          fn(prop, params);
+          obj[prop].apply(this, params);
+        }
+      });
+    }
+  }
+
+  return observable;
+}
+
+function isFunction(functionToCheck) {
+  return functionToCheck && {}.toString.call(functionToCheck) === '[object Function]';
+}
+
+
+module.exports = { MakeObservable, MakeObservableFn };

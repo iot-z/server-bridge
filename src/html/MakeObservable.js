@@ -69,7 +69,7 @@ function MakeObservable(obj, fn, triggerOnSetup = false, path = '') {
   });
 
   Object.defineProperty(observable, 'set', {
-    value: function set(prop, value) {
+    value: function set(prop, value, trigger = true) {
       let obj = this;
       let parts = prop.split('.');
 
