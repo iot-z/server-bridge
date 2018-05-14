@@ -1,6 +1,6 @@
 const { exec } = require('child_process');
 
-const NPM = {
+const Package = {
     install(...packages) {
         return new Promise((resolve, reject) => {
             const install = packages.map((v) => `@iotz/`).join(' ');
@@ -47,4 +47,4 @@ const NPM = {
     search,
 }
 
-module.exports = NPM;
+module.exports = Package;
