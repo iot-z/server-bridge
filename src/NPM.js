@@ -3,17 +3,42 @@ const { exec } = require('child_process');
 const NPM = {
     install(...packages) {
         return new Promise((resolve, reject) => {
-            const install = packages.map((v) => '@iotz/').join(' ');
+            const install = packages.map((v) => `@iotz/`).join(' ');
 
-            exec(`npm install ${install}`, (error, stdout, stderr) => {
+            exec(`npm install -S ${install}`, (error, stdout, stderr) => {
                 if (error) {
                     console.error(`exec error: ${error}`);
                     reject(stderr);
                 } else {
-                    reject(stdout);
+                    resolve(stdout);
                 }
             });
         });
+    }
+
+    has(package) {
+        return new Promise((resolve, reject) => {
+            exec(`npm --json --depth=0 list ${package}`, (error, stdout, stderr) => {
+                if (error) {
+                    console.error(`exec error: ${error}`);
+                    reject(stderr);
+                } else {
+                    const data = JSON.parse(stdout);
+                    resolve(typeof data.dependencies !== 'undefined' ? data.dependencies[package] : false);
+                }
+            });
+        });
+    }
+
+    /**
+     * Search
+     * @param  {string} type          driver|ui
+     * @param  {string} moduleType    Module Type
+     * @param  {string} moduleVersion Module Version Wildcard
+     * @return {array}                Package list
+     */
+    search(type, moduleType, moduleVersion) {
+
     }
 
     list npm list --depth=0
@@ -22,4 +47,4 @@ const NPM = {
     search,
 }
 
-module.exports = DB;
+module.exports = NPM;
