@@ -1,27 +1,49 @@
 const EventEmitter   = require('events');
 const dgram          = require('dgram');
-const sqlite3        = require('sqlite3').verbose();
+const DB             = require('./DB');
 const { Driver }     = require('./Driver/Driver');
 const { MakeObservable, MakeObservableFn } = require('./Driver/utils/MakeObservable');
 
 const MAX_MESSAGE_ID = 65535; // uint16
 let MESSAGE_ID       = 0;
 
-class Client extends EventEmitter {
-  constructor(server, host, port, id, name, type, version) {
+class Module extends EventEmitter {
+  constructor(server, data) {
     super();
 
-    this._host        = host;
-    this._port        = port;
-    this._id          = id;
-    this._name        = name;
-    this._type        = type;
-    this._version     = version;
+    this._host         = null;
+    this._port         = null;
 
-    this.server       = server;
+    this._id           = data.id;
+    this._name         = data.name;
+    this._type         = data.type;
+    this._version      = data.version;
+
+    this._connected    = data.connected;
+    this._created_at   = data.created_at;
+    this._connected_at = data.connected_at;
+    this._status       = data.status;
+
+    this._driver       = {
+      id: data.driver || null,
+      version: null,
+      instance: null
+    };
+
+    this._ui           = {
+      id: data.ui || null,
+      version: null,
+      instance: null
+    };
+
+    this.server        = server;
   }
 
-  async connect() {
+  async connect(host, port) {
+    this._host        = host;
+    this._port        = port;
+    this._connected   = true;
+
     await this.send('connect', { timeout: this.server._connectionTimeOut });
     this.emit('connection', this);
 
@@ -34,6 +56,10 @@ class Client extends EventEmitter {
   async disconnect() {
     await this.send('disconnect');
     this.emit('disconnect');
+
+    this._host         = null;
+    this._port         = null;
+    this._connected    = false;
   }
 
   async send(topic, data) {
@@ -106,60 +132,77 @@ class Server extends EventEmitter {
     this._clients           = {};
     this._modules           = {};
 
-    this.db                 = new sqlite3.Database('./iotz.db');
+    this.db                 = new DB('./iotz.db');
     this.socket             = dgram.createSocket('udp4');
 
-    this.db.all('SELECT * FROM modules', [], (err, rows) => {
-      if (err) {
-        throw err;
-      }
+    init();
+  }
 
-      rows.forEach(({id, type, version, driver, ui, created_at, connected_at, status}) => {
-        this._modules.push({
-          connected: false,
-          id,
-          type,
-          version,
-          driver,
-          ui,
-          created_at,
-          connected_at,
-          status,
-        });
+  async init() {
+    await initModules();
+    await initSocket();
+  }
+
+  async initModules() {
+    const rows = await this.db.all('SELECT * FROM modules');
+
+    rows.forEach((data) => {
+      this._modules[data.id] = this.newModule(this, data);
+    });
+  }
+
+
+  async initSocket() {
+    return new Promise((resolve, reject) => {
+      this.socket.on('error', (err) => {
+        console.log(`server error:\n${err.stack}`);
+        this.socket.close();
+        reject();
       });
-    });
 
-    this.socket.on('error', (err) => {
-      console.log(`server error:\n${err.stack}`);
-      this.socket.close();
-    });
+      this.socket.on('message', (buffer, rinfo) => {
+        const payload = JSON.parse(buffer.toString());
+        const module = this.getModule(payload.moduleId);
 
-    this.socket.on('message', (buffer, rinfo) => {
-      const payload = JSON.parse(buffer.toString());
-      const client = this.getClient(payload.moduleId);
-
-      if (!!client) {
-        if (payload.topic == 'connect' || payload.topic == 'disconnect') {
-          this.rmClient(payload.moduleId);
+        if (!!module) {
+          if (payload.topic == 'connect' || payload.topic == 'disconnect') {
+            await module.disconnect();
+          } else {
+            module.setTime(); // Update the time of last packet received
+            module.emit(payload.topic, payload.data);
+            module.emit('*', payload.topic, payload.data);
+            this.emit(`${payload.moduleId}.${payload.topic}`, payload.data);
+          }
         } else {
-          client.setTime(); // Update the time of last packet received
-          client.emit(payload.topic, payload.data);
-          client.emit('*', payload.topic, payload.data);
-          this.emit(`${payload.moduleId}.${payload.topic}`, payload.data);
-        }
-      } else {
-        if (payload.topic == 'connect') {
-          this.newClient(rinfo.address, rinfo.port, payload.moduleId, payload.data.name, payload.data.type, payload.data.version);
-        }
-      }
-    });
+          if (payload.topic == 'connect') {
+            await this.register(payload.moduleId, payload.data.name, payload.data.type, payload.data.version);
 
-    this.socket.on('listening', () => {
-      const address = this.socket.address();
-      console.log(`server listening ${address.address}:${address.port}`);
-    });
+            await module.connect(rinfo.address, rinfo.port);
+          }
+        }
+      });
 
-    this.socket.bind(this._port);
+      this.socket.on('listening', () => {
+        const address = this.socket.address();
+        console.log(`server listening ${address.address}:${address.port}`);
+
+        resolve();
+      });
+
+      this.socket.bind(this._port);
+    });
+  }
+
+  async register(id, name, type, version) {
+    const data = {
+      id,
+      name,
+      type,
+      version,
+    };
+
+    await this.db.run('INSERT INTO modules (id, name, type, version) VALUES (?, ?, ?, ?)', Object.values(data));
+    this._modules[id] = this.newModule(this, data);
   }
 
   async newClient(host, port, id, name, type, version) {
@@ -185,8 +228,8 @@ class Server extends EventEmitter {
     return this._clients[id];
   }
 
-  async send(client, topic, data) {
-    return await new Promise((resolve, reject) => {
+  send(client, topic, data) {
+    return new Promise((resolve, reject) => {
       const messageId = this._genMessageID();
       const buffer    = new Buffer(JSON.stringify({ messageId: messageId, topic: topic, data: data }));
 
