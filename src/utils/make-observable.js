@@ -100,8 +100,8 @@ function MakeObservableFn(obj, fn) {
   return observable;
 }
 
-function isFunction(functionToCheck) {
-  return functionToCheck && {}.toString.call(functionToCheck) === '[object Function]';
+function isFunction(fn) {
+  return fn && {}.toString.call(fn) === '[object Function]';
 }
 
 

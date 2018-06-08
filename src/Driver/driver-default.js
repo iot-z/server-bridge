@@ -1,4 +1,4 @@
-const DriverCore     = require('./DriverCore');
+const DriverCore     = require('./driver-core');
 
 // const INPUT_PULLUP   = 'INPUT_PULLUP';
 const INPUT          = 'INPUT';

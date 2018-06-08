@@ -1,8 +1,8 @@
 const EventEmitter   = require('events');
 const dgram          = require('dgram');
-const DB             = require('./DB');
-const { Driver }     = require('./Driver/Driver');
-const { MakeObservable, MakeObservableFn } = require('./Driver/utils/MakeObservable');
+const DB             = require('../utils/db');
+const { Driver }     = require('../driver/driver');
+const { MakeObservable, MakeObservableFn } = require('../utils/make-observable');
 
 const MAX_MESSAGE_ID = 65535; // uint16
 let MESSAGE_ID       = 0;
@@ -19,7 +19,6 @@ class Module extends EventEmitter {
     this._type         = data.type;
     this._version      = data.version;
 
-    this._connected    = data.connected;
     this._created_at   = data.created_at;
     this._connected_at = data.connected_at;
     this._status       = data.status;
@@ -35,6 +34,8 @@ class Module extends EventEmitter {
       version: null,
       instance: null
     };
+
+    this._connected    = false;
 
     this.server        = server;
   }
@@ -78,7 +79,8 @@ class Module extends EventEmitter {
 
     this._timeoutConnetcion = setTimeout(() => {
       console.log('timeout', this.id);
-      this.server.rmClient(this.id);
+      this.disconnect();
+      this.server.rm(this.id);
     }, this.server._connectionTimeOut);
   }
 
@@ -129,30 +131,26 @@ class Server extends EventEmitter {
     this._connectionTimeOut = 16000;
 
     this._port              = port;
-    this._clients           = {};
     this._modules           = {};
 
     this.db                 = new DB('./iotz.db');
     this.socket             = dgram.createSocket('udp4');
-
-    init();
   }
 
   async init() {
-    await initModules();
-    await initSocket();
+    await this.initModules();
+    await this.initSocket();
   }
 
   async initModules() {
     const rows = await this.db.all('SELECT * FROM modules');
 
     rows.forEach((data) => {
-      this._modules[data.id] = this.newModule(this, data);
+      this._modules[data.id] = this.add(this, data);
     });
   }
 
-
-  async initSocket() {
+  initSocket() {
     return new Promise((resolve, reject) => {
       this.socket.on('error', (err) => {
         console.log(`server error:\n${err.stack}`);
@@ -160,24 +158,24 @@ class Server extends EventEmitter {
         reject();
       });
 
-      this.socket.on('message', (buffer, rinfo) => {
+      this.socket.on('message', async (buffer, rinfo) => {
         const payload = JSON.parse(buffer.toString());
-        const module = this.getModule(payload.moduleId);
+        let module = this.get(payload.moduleId);
+
+        if (!module && payload.topic == 'connect') {
+          module = await this.register(payload.moduleId, payload.data.name, payload.data.type, payload.data.version);
+        }
 
         if (!!module) {
-          if (payload.topic == 'connect' || payload.topic == 'disconnect') {
+          if (payload.topic == 'connect') {
+            await module.connect(rinfo.address, rinfo.port);
+          } else if (payload.topic == 'disconnect') {
             await module.disconnect();
           } else {
             module.setTime(); // Update the time of last packet received
             module.emit(payload.topic, payload.data);
             module.emit('*', payload.topic, payload.data);
             this.emit(`${payload.moduleId}.${payload.topic}`, payload.data);
-          }
-        } else {
-          if (payload.topic == 'connect') {
-            await this.register(payload.moduleId, payload.data.name, payload.data.type, payload.data.version);
-
-            await module.connect(rinfo.address, rinfo.port);
           }
         }
       });
@@ -202,30 +200,28 @@ class Server extends EventEmitter {
     };
 
     await this.db.run('INSERT INTO modules (id, name, type, version) VALUES (?, ?, ?, ?)', Object.values(data));
-    this._modules[id] = this.newModule(this, data);
+    return this.add(this, data);
   }
 
-  async newClient(host, port, id, name, type, version) {
-    const client = new Client(this, host, port, id, name, type, version);
+  add(data) {
+    const module = new Module(this, data);
 
-    this._clients[id] = client;
+    this._modules[id] = module;
 
-    await client.connect();
+    return module;
   }
 
-  async rmClient(id) {
-    const client = this._clients[id];
+  rm(id) {
+    const module = this._modules[id];
 
-    clearInterval(client._intervalPing);
-    clearTimeout(client._timeoutConnetcion);
+    clearInterval(module._intervalPing);
+    clearTimeout(module._timeoutConnetcion);
 
-    await client.disconnect();
-
-    delete this._clients[id];
+    delete this._modules[id];
   }
 
-  getClient(id) {
-    return this._clients[id];
+  get(id) {
+    return this._modules[id];
   }
 
   send(client, topic, data) {
@@ -285,30 +281,24 @@ class Server extends EventEmitter {
     return this._port;
   }
 
-  get clients() {
+  get modules() {
     let list = [];
-    let client;
+    let module;
 
-    for (let i in this._clients) {
-      client = this._clients[i];
+    for (let i in this._modules) {
+      module = this._modules[i];
 
       list.push({
-        id:       client.id,
-        name:     client.name,
-        type:     client.type,
-        version:  client.version,
-        state:    client.state,
-        actions:  client.actions,
+        id:       module.id,
+        name:     module.name,
+        type:     module.type,
+        version:  module.version,
+        state:    module.state,
+        actions:  module.actions,
       });
     }
 
     return list;
-  }
-
-  get data() {
-    return {
-      modules: this.clients,
-    }
   }
 }
 

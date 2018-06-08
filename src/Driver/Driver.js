@@ -1,5 +1,5 @@
-const { DriverDefault, HIGH, LOW } = require('./DriverDefault');
-const pins = require('./utils/NodeMCU.js');
+const { DriverDefault, HIGH, LOW } = require('./driver-default');
+const pins = require('./utils/node-mcu.js');
 
 class Driver extends DriverDefault {
   constructor(client) {
