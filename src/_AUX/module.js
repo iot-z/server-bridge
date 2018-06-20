@@ -2,13 +2,13 @@ const EventEmitter = require('events');
 const dgram = require('dgram');
 
 class Client extends EventEmitter {
-    constructor() {
+    constructor(id = 'AAAAA-AAAAA-AAAAA-AAAAA', name = 'AAAAA', type = 'TYPE', version = '1.0.0') {
         super();
 
-        this.moduleId = 'AAAAA-AAAAA-AAAAA-AAAAA';
-        this.name     = 'NAME';
-        this.type     = 'TYPE';
-        this.version  = '1.0.0';
+        this.moduleId = id;
+        this.name     = name;
+        this.type     = type;
+        this.version  = version;
 
         this.socket = dgram.createSocket('udp4');
 

@@ -11,14 +11,15 @@ const ServerModule = require('./server-module/server-module');
 
   await serverModule.init();
 
-  serverModule.on('connection', (client) => {
-      console.log('Module connected:', client.id, client.name, client.type, client.version);
+  serverModule.on('connection', (module) => {
+    console.log('Module connected:', module.id, module.name, module.type, module.version);
 
-      client.on('disconnect', () => {
-        console.log('Module disconnected');
-      });
-
+    module.on('disconnect', () => {
+      console.log('Module disconnected');
       serverUser.emit('modules/modules', serverModule.modules);
+    });
+
+    serverUser.emit('modules/modules', serverModule.modules);
   });
 
   serverUser.on('connection', (client) => {
@@ -28,8 +29,13 @@ const ServerModule = require('./server-module/server-module');
       console.log('User disconnected');
     });
 
+    client.on('unregister', async (id) => {
+      await serverModule.unregister(id);
+      serverUser.emit('modules/modules', serverModule.modules);
+    });
+
     client.on('change', (playload) => {
-      serverModule.getClient(playload.moduleId).state.set(playload.prop, playload.val);
+      serverModule.get(playload.moduleId).state.set(playload.prop, playload.val);
     });
 
     client.emit('modules/aliases', [{ id: '12345', name: 'Teste' }]);

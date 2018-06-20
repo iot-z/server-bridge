@@ -8,32 +8,34 @@ const MAX_MESSAGE_ID = 65535; // uint16
 let MESSAGE_ID       = 0;
 
 class Module extends EventEmitter {
-  constructor(server, data) {
+  constructor(server, id, data) {
     super();
 
     this._host         = null;
     this._port         = null;
 
-    this._id           = data.id;
+    this._id           = id;
     this._name         = data.name;
     this._type         = data.type;
     this._version      = data.version;
 
     this._created_at   = data.created_at;
     this._connected_at = data.connected_at;
-    this._status       = data.status;
+    this._status       = data.status || true;
 
     this._driver       = {
       id: data.driver || null,
       version: null,
-      instance: null
+      instance: new Driver(this),
     };
 
     this._ui           = {
       id: data.ui || null,
       version: null,
-      instance: null
+      instance: null,
     };
+
+    // this._driver.state = MakeObservable(driver.state, driver.onChange.bind(driver), true);
 
     this._connected    = false;
 
@@ -45,22 +47,23 @@ class Module extends EventEmitter {
     this._port        = port;
     this._connected   = true;
 
-    await this.send('connect', { timeout: this.server._connectionTimeOut });
-    this.emit('connection', this);
-
-    this.driver       = new Driver(this);
-    this.driver.state = MakeObservable(this.driver.state, this.driver.onChange.bind(this.driver), true);
-
     this.setTime();
+
+    await this.send('connect', { timeout: this.server._connectionTimeOut });
+    this.server.emit('connection', this);
   }
 
   async disconnect() {
+    clearInterval(this._intervalPing);
+    clearTimeout(this._timeoutConnetcion);
+
     await this.send('disconnect');
-    this.emit('disconnect');
 
     this._host         = null;
     this._port         = null;
     this._connected    = false;
+
+    this.emit('disconnect');
   }
 
   async send(topic, data) {
@@ -78,18 +81,17 @@ class Module extends EventEmitter {
     }, this.server._pingDelay);
 
     this._timeoutConnetcion = setTimeout(() => {
-      console.log('timeout', this.id);
+      console.log('timeout connetcion', this.id);
       this.disconnect();
-      this.server.rm(this.id);
     }, this.server._connectionTimeOut);
   }
 
   get state() {
-    return this.driver.state;
+    return this._driver.instance.state;
   }
 
   get actions() {
-    return this.driver.actions;
+    return this._driver.instance.actions;
   }
 
   get time() {
@@ -119,6 +121,14 @@ class Module extends EventEmitter {
   get version() {
     return this._version;
   }
+
+  get connected() {
+    return this._connected;
+  }
+
+  get status() {
+    return this._status;
+  }
 }
 
 class Server extends EventEmitter {
@@ -145,8 +155,9 @@ class Server extends EventEmitter {
   async initModules() {
     const rows = await this.db.all('SELECT * FROM modules');
 
-    rows.forEach((data) => {
-      this._modules[data.id] = this.add(this, data);
+    rows.forEach((row) => {
+      const { id, ...data } = row;
+      this._modules[id] = this.add(id, data);
     });
   }
 
@@ -163,19 +174,21 @@ class Server extends EventEmitter {
         let module = this.get(payload.moduleId);
 
         if (!module && payload.topic == 'connect') {
-          module = await this.register(payload.moduleId, payload.data.name, payload.data.type, payload.data.version);
+          module = await this.register(payload.moduleId, payload.data);
         }
 
         if (!!module) {
           if (payload.topic == 'connect') {
             await module.connect(rinfo.address, rinfo.port);
-          } else if (payload.topic == 'disconnect') {
-            await module.disconnect();
-          } else {
-            module.setTime(); // Update the time of last packet received
-            module.emit(payload.topic, payload.data);
-            module.emit('*', payload.topic, payload.data);
-            this.emit(`${payload.moduleId}.${payload.topic}`, payload.data);
+          } else if (module.connected) {
+            if (payload.topic == 'disconnect') {
+              await module.disconnect();
+            } else {
+              module.setTime(); // Update the time of last packet received
+              module.emit(payload.topic, payload.data);
+              module.emit('*', payload.topic, payload.data);
+              this.emit(`${payload.moduleId}.${payload.topic}`, payload.data);
+            }
           }
         }
       });
@@ -191,20 +204,18 @@ class Server extends EventEmitter {
     });
   }
 
-  async register(id, name, type, version) {
-    const data = {
-      id,
-      name,
-      type,
-      version,
-    };
-
-    await this.db.run('INSERT INTO modules (id, name, type, version) VALUES (?, ?, ?, ?)', Object.values(data));
-    return this.add(this, data);
+  async register(id, data) {
+    await this.db.run('INSERT INTO modules (id, name, type, version) VALUES (?, ?, ?, ?)', [id, ...Object.values(data)]);
+    return this.add(id, data);
   }
 
-  add(data) {
-    const module = new Module(this, data);
+  async unregister(id) {
+    await this.db.run('DELETE FROM modules WHERE id = ?', id);
+    this.rm(id);
+  }
+
+  add(id, data) {
+    const module = new Module(this, id, data);
 
     this._modules[id] = module;
 
@@ -214,8 +225,7 @@ class Server extends EventEmitter {
   rm(id) {
     const module = this._modules[id];
 
-    clearInterval(module._intervalPing);
-    clearTimeout(module._timeoutConnetcion);
+    module.disconnect();
 
     delete this._modules[id];
   }
@@ -224,34 +234,42 @@ class Server extends EventEmitter {
     return this._modules[id];
   }
 
-  send(client, topic, data) {
+  send(module, topic, data) {
     return new Promise((resolve, reject) => {
       const messageId = this._genMessageID();
       const buffer    = new Buffer(JSON.stringify({ messageId: messageId, topic: topic, data: data }));
 
-      let tries       = this._messageTries;
+      const _reject   = (...params) => {
+        console.log('reject', module.id, topic, data, ...params);
+
+        module.removeAllListeners(messageId);
+        resolve(null);
+      };
+
+      let tries = this._messageTries;
       let timeout;
 
-      client.once(messageId, (data) => {
+      module.once(messageId, (data) => {
         clearTimeout(timeout);
         resolve(data);
       });
 
-      // console.log('send', messageId, topic);
-
       const send = () => {
-        this.socket.send(buffer, 0, buffer.length, client.port, client.host, (err) => {
+        if (!module.connected) {
+          _reject();
+
+          return false;
+        }
+
+        this.socket.send(buffer, 0, buffer.length, module.port, module.host, (err) => {
           if (err) {
-            reject(err);
+            _reject(err);
           } else {
             timeout = setTimeout(() => {
               if (--tries) {
-                console.log('retrying', messageId);
                 send();
               } else {
-                console.log('timeout', messageId);
-                client.removeAllListeners(messageId);
-                reject();
+                _reject();
               }
             }, this._messageTimeOut);
           }
@@ -289,12 +307,14 @@ class Server extends EventEmitter {
       module = this._modules[i];
 
       list.push({
-        id:       module.id,
-        name:     module.name,
-        type:     module.type,
-        version:  module.version,
-        state:    module.state,
-        actions:  module.actions,
+        id: module.id,
+        name: module.name,
+        type: module.type,
+        version: module.version,
+        connected: module.connected,
+        status: module.status,
+        state: module.state,
+        actions: module.actions,
       });
     }
 
