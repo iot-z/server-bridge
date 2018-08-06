@@ -1,8 +1,14 @@
 const EventEmitter   = require('events');
 const dgram          = require('dgram');
-const DB             = require('../utils/db');
+const axios          = require('axios');
+
 const { Driver }     = require('../driver/driver');
+const { stringify: buildQuery } = require('querystring');
 const { MakeObservable, MakeObservableFn } = require('../utils/make-observable');
+
+const request = axios.create({
+  baseUrl: 'htt://localhost',
+});
 
 const MAX_MESSAGE_ID = 65535; // uint16
 let MESSAGE_ID       = 0;
@@ -11,25 +17,26 @@ class Module extends EventEmitter {
   constructor(server, id, data) {
     super();
 
-    this._host         = null;
-    this._port         = null;
+    this._host        = null;
+    this._port        = null;
 
-    this._id           = id;
-    this._name         = data.name;
-    this._type         = data.type;
-    this._version      = data.version;
+    this._id          = id;
+    this._name        = data.name;
+    this._type        = data.type;
+    this._version     = data.version;
 
-    this._created_at   = data.created_at;
-    this._connected_at = data.connected_at;
-    this._status       = data.status || true;
+    this._createdAt   = data.createdAt || Date.now();
+    this._updatedAt   = data.updatedAt || null;
+    this._connectedAt = data.connectedAt || null;
+    this._status      = data.status || true;
 
-    this._driver       = {
+    this._driver      = {
       id: data.driver || null,
       version: null,
       instance: new Driver(this),
     };
 
-    this._ui           = {
+    this._ui          = {
       id: data.ui || null,
       version: null,
       instance: null,
@@ -37,19 +44,22 @@ class Module extends EventEmitter {
 
     // this._driver.state = MakeObservable(driver.state, driver.onChange.bind(driver), true);
 
-    this._connected    = false;
+    this._connected   = false;
 
-    this.server        = server;
+    this.server       = server;
   }
 
   async connect(host, port) {
     this._host        = host;
     this._port        = port;
     this._connected   = true;
+    this._connectedAt = Date.now();
 
     this.setTime();
 
     await this.send('connect', { timeout: this.server._connectionTimeOut });
+    await request.patch(`/api/modules/${this.id}`, { connectedAt: this._connectedAt });
+
     this.server.emit('connection', this);
   }
 
@@ -126,13 +136,25 @@ class Module extends EventEmitter {
     return this._connected;
   }
 
+  get createdAt() {
+    return this._createdAt;
+  }
+
+  get updatedAt() {
+    return this._updatedAt;
+  }
+
+  get connectedAt() {
+    return this._connectedAt;
+  }
+
   get status() {
     return this._status;
   }
 }
 
 class Server extends EventEmitter {
-  constructor(port) {
+  constructor() {
     super();
 
     this._pingDelay         = 5000;
@@ -140,77 +162,65 @@ class Server extends EventEmitter {
     this._messageTimeOut    = 1000;
     this._connectionTimeOut = 16000;
 
-    this._port              = port;
     this._modules           = {};
 
-    this.db                 = new DB('./iotz.db');
     this.socket             = dgram.createSocket('udp4');
-  }
 
-  async init() {
-    await this.initModules();
-    await this.initSocket();
+    this.initModules();
+    this.initSocket();
   }
 
   async initModules() {
-    const rows = await this.db.all('SELECT * FROM modules');
+    const res = await request.get('/api/modules/');
 
-    rows.forEach((row) => {
-      const { id, ...data } = row;
+    res.data.forEach((module) => {
+      const { id, ...data } = module;
       this._modules[id] = this.add(id, data);
     });
   }
 
   initSocket() {
-    return new Promise((resolve, reject) => {
-      this.socket.on('error', (err) => {
-        console.log(`server error:\n${err.stack}`);
-        this.socket.close();
-        reject();
-      });
+    this.socket.on('error', (err) => {
+      console.log(`server error:\n${err.stack}`);
+      this.socket.close();
+    });
 
-      this.socket.on('message', async (buffer, rinfo) => {
-        const payload = JSON.parse(buffer.toString());
-        let module = this.get(payload.moduleId);
+    this.socket.on('message', async (buffer, rinfo) => {
+      const payload = JSON.parse(buffer.toString());
+      let module = this.get(payload.moduleId);
 
-        if (!module && payload.topic == 'connect') {
-          module = await this.register(payload.moduleId, payload.data);
-        }
+      if (!module && payload.topic == 'connect') {
+        module = await this.register(payload.moduleId, payload.data);
+      }
 
-        if (!!module) {
-          if (payload.topic == 'connect') {
-            await module.connect(rinfo.address, rinfo.port);
-          } else if (module.connected) {
-            if (payload.topic == 'disconnect') {
-              await module.disconnect();
-            } else {
-              module.setTime(); // Update the time of last packet received
-              module.emit(payload.topic, payload.data);
-              module.emit('*', payload.topic, payload.data);
-              this.emit(`${payload.moduleId}.${payload.topic}`, payload.data);
-            }
+      if (!!module) {
+        if (payload.topic == 'connect') {
+          await module.connect(rinfo.address, rinfo.port);
+        } else if (module.connected) {
+          if (payload.topic == 'disconnect') {
+            await module.disconnect();
+          } else {
+            module.setTime(); // Update the time of last packet received
+            module.emit(payload.topic, payload.data);
+            module.emit('*', payload.topic, payload.data);
+            this.emit(`${payload.moduleId}.${payload.topic}`, payload.data);
           }
         }
-      });
-
-      this.socket.on('listening', () => {
-        const address = this.socket.address();
-        console.log(`server listening ${address.address}:${address.port}`);
-
-        resolve();
-      });
-
-      this.socket.bind(this._port);
+      }
     });
   }
 
+  listen(port) {
+    this.socket.bind(port);
+  }
+
   async register(id, data) {
-    await this.db.run('INSERT INTO modules (id, name, type, version) VALUES (?, ?, ?, ?)', [id, ...Object.values(data)]);
+    await request.post(`/api/modules/`, Object.assign({ id }, data));
     return this.add(id, data);
   }
 
   async unregister(id) {
-    await this.db.run('DELETE FROM modules WHERE id = ?', id);
+    await request.delete(`/api/modules/${id}`);
     this.rm(id);
   }
 
@@ -315,6 +325,12 @@ class Server extends EventEmitter {
         status: module.status,
         state: module.state,
         actions: module.actions,
+        driver: {
+
+        },
+        ui: {
+
+        },
       });
     }
 
@@ -322,4 +338,4 @@ class Server extends EventEmitter {
   }
 }
 
-module.exports = Server;
+module.exports = new Server;

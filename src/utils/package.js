@@ -43,7 +43,7 @@ const Package = {
    * @return {array}                Package list
    */
   async search(type, moduleType, moduleVersion) {
-    res = await get(`${WS}/modules/search/?${buildQuery({ type, moduleType, moduleVersion })}`);
+    const res = await get(`${WS}/modules/search/?${buildQuery({ type, moduleType, moduleVersion })}`);
     return JSON.parse(res.body);
   }
 };

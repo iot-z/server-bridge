@@ -1,0 +1,28 @@
+{
+  "modules": [
+    {
+      "id": "CCCCC-CCCCC-CCCCC-CCCCC",
+      "type": "TYPE",
+      "name": "CCCCC",
+      "version": "1.0.0",
+      "driver": "driver-default",
+      "ui": "ui-default",
+      "createdAt": 1532211841747,
+      "updatedAt": null,
+      "connectedAt": 1532211841747,
+      "status": 1
+    },
+    {
+      "id": "DDDDD-DDDDD-DDDDD-DDDDD",
+      "name": "DDDDD",
+      "type": "TYPE",
+      "version": "1.0.0",
+      "driver": "driver-default",
+      "ui": "ui-default",
+      "connectedAt": 1533531210074,
+      "status": 1,
+      "createdAt": 1533531210067,
+      "updatedAt": null
+    }
+  ]
+}
