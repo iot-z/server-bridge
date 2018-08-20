@@ -1,5 +1,6 @@
 'use strict';
 
+const path         = require('path');
 const serverHttp   = require('./servers/http');
 const serverUser   = require('./servers/user');
 const serverModule = require('./servers/module');
@@ -34,6 +35,26 @@ serverModule.on('connection', (module) => {
   });
 
   serverUser.emit('modules/modules', serverModule.modules);
+});
+
+serverHttp.get('/ui/:moduleId*?', (req, res) => {
+  const moduleId = req.params.moduleId;
+  const filename = req.params[0] ? req.params[0] : 'index.html';
+
+  const module = serverModule.get(moduleId);
+
+  if (typeof module !== 'undefined') { // Verificar se o moduleId existe
+    const ui = module.ui.type;
+
+    res.sendFile(filename, { root: path.join(__dirname, `./node_modules/${ui}`) });
+  } else {
+    res.sendStatus(404);
+  }
+});
+
+serverHttp.get('/*', (req, res) => {
+  const filename = req.params[0] ? req.params[0] : 'index.html';
+  res.sendFile(filename  , { root: path.join(__dirname, './node_modules/iotz-server-pwa/dist') });
 });
 
 serverHttp.listen(80);

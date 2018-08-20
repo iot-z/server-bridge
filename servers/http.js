@@ -1,10 +1,10 @@
-const path = require('path');
-const express = require('express');
-const jsonServer = require('json-server');
+const path        = require('path');
+const express     = require('express');
+const jsonServer  = require('json-server');
 
-const app = express();
+const app         = express();
 
-const router = jsonServer.router(path.join(__dirname, '../db.json'));
+const router      = jsonServer.router(path.join(__dirname, '../db.json'));
 const middlewares = jsonServer.defaults();
 
 // JSON SERVER
@@ -15,7 +15,7 @@ app.use((req, res, next) => {
     case 'POST':
       req.body.driver      = 'driver-default';
       req.body.ui          = 'ui-default';
-      req.body.connectedAt = 1532211841747;
+      req.body.connectedAt = Date.now();
       req.body.status      = 1;
       req.body.createdAt   = Date.now();
       req.body.updatedAt   = null;
@@ -29,11 +29,5 @@ app.use((req, res, next) => {
 });
 
 app.use('/api', router);
-
-// PWA
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.get('/pwa/ui/*', (req, res) => res.send('UI Hello World!'));
-app.get('/pwa/', (req, res) => res.send('PWA Hello World!'));
 
 module.exports = app;

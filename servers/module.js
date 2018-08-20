@@ -2,8 +2,7 @@ const EventEmitter   = require('events');
 const dgram          = require('dgram');
 const axios          = require('axios');
 
-const { Driver }     = require('../driver/driver');
-const { stringify: buildQuery } = require('querystring');
+const { Driver }     = require('../_AUX/driver/driver');
 const { MakeObservable, MakeObservableFn } = require('../utils/make-observable');
 
 const request = axios.create({
@@ -31,13 +30,13 @@ class Module extends EventEmitter {
     this._status      = data.status || true;
 
     this._driver      = {
-      id: data.driver || null,
+      type: data.driver || null,
       version: null,
       instance: new Driver(this),
     };
 
     this._ui          = {
-      id: data.ui || null,
+      type: data.ui || null,
       version: null,
       instance: null,
     };
@@ -150,6 +149,14 @@ class Module extends EventEmitter {
 
   get status() {
     return this._status;
+  }
+
+  get driver() {
+    return this._driver;
+  }
+
+  get ui() {
+    return this._ui;
   }
 }
 
@@ -326,10 +333,12 @@ class Server extends EventEmitter {
         state: module.state,
         actions: module.actions,
         driver: {
-
+          type: module.driver.type,
+          version: module.driver.version,
         },
         ui: {
-
+          type: module.ui.type,
+          version: module.ui.version,
         },
       });
     }

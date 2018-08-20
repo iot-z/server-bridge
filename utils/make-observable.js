@@ -104,5 +104,4 @@ function isFunction(fn) {
   return fn && {}.toString.call(fn) === '[object Function]';
 }
 
-
 module.exports = { MakeObservable, MakeObservableFn };
