@@ -5,11 +5,11 @@
       "type": "TYPE",
       "name": "CCCCC",
       "version": "1.0.0",
-      "driver": "iotz-driver-default",
-      "ui": "iotz-ui-default",
+      "driver": "@iotz/driver-default",
+      "ui": "@iotz/ui-default",
       "createdAt": 1532211841747,
       "updatedAt": null,
-      "connectedAt": 1534733501406,
+      "connectedAt": 1536559848362,
       "status": 1
     },
     {
@@ -17,11 +17,23 @@
       "name": "DDDDD",
       "type": "TYPE",
       "version": "1.0.0",
-      "driver": "iotz-driver-default",
-      "ui": "iotz-ui-default",
+      "driver": "@iotz/driver-default",
+      "ui": "@iotz/ui-default",
       "connectedAt": 1533531210074,
       "status": 1,
       "createdAt": 1533531210067,
+      "updatedAt": null
+    },
+    {
+      "id": "031d8494-9d53-4f2c-bd4c-72e5fc5b3080",
+      "name": "Teste",
+      "type": "Module Default",
+      "version": "1.0.0",
+      "driver": "@iotz/driver-default",
+      "ui": "@iotz/ui-default",
+      "connectedAt": 1536801946173,
+      "status": 1,
+      "createdAt": 1536732647174,
       "updatedAt": null
     }
   ]

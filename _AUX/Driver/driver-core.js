@@ -1,4 +1,5 @@
 const EventEmitter = require('events');
+const { MakeObservable, MakeObservableFn } = require('./utils/make-observable');
 
 class DriverCore extends EventEmitter {
   /**
@@ -15,9 +16,26 @@ class DriverCore extends EventEmitter {
       this.emit(topic, data);
     });
 
-    // UI interface API
-    this.state   = {};
-    this.actions = {};
+    let state;
+    let actions;
+
+    Object.defineProperty(this, 'state', {
+      get: () => {
+        return state;
+      },
+      set: (newVal) => {
+        state = MakeObservable(newVal, this.onChange)
+      }
+    });
+
+    Object.defineProperty(this, 'actions', {
+      get: () => {
+        return actions;
+      },
+      set: (newVal) => {
+        actions = MakeObservableFn(newVal, this.onCall)
+      }
+    });
   }
 
   /**
@@ -38,7 +56,7 @@ class DriverCore extends EventEmitter {
    * @return {void}
    */
   onCall(action, params) {
-    this.actions[action].apply(this, params);
+
   }
 
   /**

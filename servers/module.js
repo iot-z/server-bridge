@@ -2,8 +2,7 @@ const EventEmitter   = require('events');
 const dgram          = require('dgram');
 const axios          = require('axios');
 
-const { Driver }     = require('../_AUX/driver/driver');
-const { MakeObservable, MakeObservableFn } = require('../utils/make-observable');
+const { Driver: DriverDefault }  = require('@iotz/driver-default');
 
 const request = axios.create({
   baseUrl: 'htt://localhost',
@@ -32,16 +31,16 @@ class Module extends EventEmitter {
     this._driver      = {
       type: data.driver || null,
       version: null,
-      instance: new Driver(this),
+      instance: new DriverDefault(this),
     };
+
+    this._driver.instance.on('state', (prop, oldVal, val) => this.emit('state', prop, oldVal, val));
 
     this._ui          = {
       type: data.ui || null,
       version: null,
       instance: null,
     };
-
-    // this._driver.state = MakeObservable(driver.state, driver.onChange.bind(driver), true);
 
     this._connected   = false;
 
@@ -57,6 +56,7 @@ class Module extends EventEmitter {
     this.setTime();
 
     await this.send('connect', { timeout: this.server._connectionTimeOut });
+    await this.driver.instance.setup();
     await request.patch(`/api/modules/${this.id}`, { connectedAt: this._connectedAt });
 
     this.server.emit('connection', this);
@@ -73,6 +73,8 @@ class Module extends EventEmitter {
     this._connected    = false;
 
     this.emit('disconnect');
+
+    this.removeAllListeners();
   }
 
   async send(topic, data) {

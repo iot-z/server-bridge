@@ -1,6 +1,3 @@
-# IoT-Z Driver
-Default driver for Module (JavaScript)
+# IOTZ BRIDGE
 
-## TODO
-- Recreate the Arduino API
-- TDD with Jasmine
+Bridge between User, Server and the Module

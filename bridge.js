@@ -14,16 +14,22 @@ serverUser.on('connection', (client) => {
 
   client.on('unregister', async (id) => {
     await serverModule.unregister(id);
-    serverUser.emit('modules/modules', serverModule.modules);
+    serverUser.emit('modules.modules', serverModule.modules);
   });
 
-  client.on('change', (playload) => {
+  client.on('modules.state', (playload) => {
+    console.log('modules.state', playload);
     serverModule.get(playload.moduleId).state.set(playload.prop, playload.val);
   });
 
-  client.emit('modules/aliases', [{ id: '12345', name: 'Teste' }]);
-  client.emit('modules/modules', serverModule.modules);
-  client.emit('modules/scenes', [{ id: '1234', name: 'Teste' }]);
+  client.on('modules.actions', (playload) => {
+    console.log('modules.actions', playload);
+    serverModule.get(playload.moduleId).actions[playload.action](playload.val);
+  });
+
+  client.emit('modules.aliases', [{ id: '12345', name: 'Teste' }]);
+  client.emit('modules.modules', serverModule.modules);
+  client.emit('modules.scenes', [{ id: '1234', name: 'Teste' }]);
 });
 
 serverModule.on('connection', (module) => {
@@ -31,10 +37,16 @@ serverModule.on('connection', (module) => {
 
   module.on('disconnect', () => {
     console.log('Module disconnected');
-    serverUser.emit('modules/modules', serverModule.modules);
+
+    serverUser.emit('modules.modules', serverModule.modules);
   });
 
-  serverUser.emit('modules/modules', serverModule.modules);
+  module.on('state', (prop, oldVal, val) => {
+    console.log('state', prop, oldVal, val);
+    serverUser.emit('modules.state', { moduleId: module.id, prop, val });
+  });
+
+  serverUser.emit('modules.modules', serverModule.modules);
 });
 
 serverHttp.get('/ui/:moduleId*?', (req, res) => {
@@ -52,9 +64,13 @@ serverHttp.get('/ui/:moduleId*?', (req, res) => {
   }
 });
 
+serverHttp.get('/iotz.js', (req, res) => {
+  res.sendFile('iotz.js', { root: path.join(__dirname, './node_modules/@iotz/iotz.js/dist') });
+});
+
 serverHttp.get('/*', (req, res) => {
   const filename = req.params[0] ? req.params[0] : 'index.html';
-  res.sendFile(filename  , { root: path.join(__dirname, './node_modules/iotz-server-pwa/dist') });
+  res.sendFile(filename, { root: path.join(__dirname, './node_modules/@iotz/server-pwa/dist') });
 });
 
 serverHttp.listen(80);

@@ -33,7 +33,7 @@
                 iframe.addEventListener('load', function(){
                     iframe.postMessage({
                         type: 'create',
-                        state: data.clients[0].state
+                        state: data.clients[0].state,
                     }, '*');
                 });
 

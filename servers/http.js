@@ -13,8 +13,8 @@ app.use(jsonServer.bodyParser);
 app.use((req, res, next) => {
   switch (req.method) {
     case 'POST':
-      req.body.driver      = 'driver-default';
-      req.body.ui          = 'ui-default';
+      req.body.driver      = '@iotz/driver-default';
+      req.body.ui          = '@iotz/ui-default';
       req.body.connectedAt = Date.now();
       req.body.status      = 1;
       req.body.createdAt   = Date.now();
