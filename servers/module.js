@@ -175,8 +175,7 @@ class Server extends EventEmitter {
 
     this.socket             = dgram.createSocket('udp4');
 
-    this.initModules();
-    this.initSocket();
+    this.initModules().then(() => this.initSocket());
   }
 
   async initModules() {

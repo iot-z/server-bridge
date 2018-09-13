@@ -31,7 +31,7 @@
       "version": "1.0.0",
       "driver": "@iotz/driver-default",
       "ui": "@iotz/ui-default",
-      "connectedAt": 1536801946173,
+      "connectedAt": 1536822749561,
       "status": 1,
       "createdAt": 1536732647174,
       "updatedAt": null

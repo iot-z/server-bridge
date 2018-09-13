@@ -18,12 +18,10 @@ serverUser.on('connection', (client) => {
   });
 
   client.on('modules.state', (playload) => {
-    console.log('modules.state', playload);
     serverModule.get(playload.moduleId).state.set(playload.prop, playload.val);
   });
 
   client.on('modules.actions', (playload) => {
-    console.log('modules.actions', playload);
     serverModule.get(playload.moduleId).actions[playload.action](playload.val);
   });
 
@@ -42,7 +40,6 @@ serverModule.on('connection', (module) => {
   });
 
   module.on('state', (prop, oldVal, val) => {
-    console.log('state', prop, oldVal, val);
     serverUser.emit('modules.state', { moduleId: module.id, prop, val });
   });
 
